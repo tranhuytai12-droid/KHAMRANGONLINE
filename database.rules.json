@@ -24,6 +24,20 @@
         "sn": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7" },
         "$other": { ".validate": false }
       }
+    },
+    "feedback": {
+      "$id": {
+        ".write": "auth != null && !data.exists()",
+        ".validate": "newData.hasChildren(['s', 'c', 'u', 't'])",
+        "s": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 5" },
+        "c": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 1000" },
+        "n": { ".validate": "newData.isString() && newData.val().length <= 60" },
+        "p": { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "f": { ".validate": "newData.val() === 3 || newData.val() === 4" },
+        "u": { ".validate": "newData.val() === auth.uid" },
+        "t": { ".validate": "newData.val() === now" },
+        "$other": { ".validate": false }
+      }
     }
   }
 }
