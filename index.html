@@ -208,6 +208,11 @@ a.art em { font-style: normal; color: var(--teal); font-size: 11.5px; font-weigh
 .docd header small { color: var(--muted); }
 .docd blockquote { margin: 0; padding-left: 10px; border-left: 3px solid var(--gum); color: var(--muted); font-style: italic; }
 .docd ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.cases .ph { aspect-ratio: 640 / 520; }
+.cases .ph img { object-position: center; }
+.docd img.big { width: 100%; border-radius: 12px; display: block; }
+.chip small { opacity: .6; font-weight: 500; }
+#case-more { align-self: center; }
 .steps { margin: 0; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
 dl.info { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
 dl.info dt { color: var(--muted); }
@@ -595,6 +600,44 @@ dl.info dd { margin: 0; }
     block(x, z, Wd + 0.1, 0.5);
     [[-0.8, D - 1.25], [0.8, D - 1.25]].forEach(([dx, sz]) => { cyl(0.26, 0.26, 0.42, seat, x + dx, 0.21, sz); block(x + dx, sz, 0.55, 0.55); });
   }
+  // Tường ảnh: khung gỗ áp tường, mặt tranh vẽ bằng canvas (ảnh từ website không dùng làm texture được vì chặn CORS)
+  function photoWall(x, z, rot, w, h, draw) {
+    const g = new THREE.Group(); g.position.set(x, 1.85, z); g.rotation.y = rot; put(g);
+    box(w + 0.14, h + 0.14, 0.05, 0x6b4a32, 0, 0, 0, g);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: canvasTex(Math.round(w * 160), Math.round(h * 160), draw), roughness: 0.85 }));
+    face.position.z = 0.03; g.add(face);
+  }
+  const DOC_WALL = ['Phạm Hồng Đức', 'Lương Minh Hằng', 'Nguyễn An Nghĩa', 'Lê Thanh Vân', 'Nguyễn Thanh Tuấn', 'Trần Minh Hiệp', 'Vũ Thị Thu Hà', 'Nguyễn Xuân Anh', 'Nguyễn Phương Nga', 'Nguyễn Thanh Huyền', 'Hoàng Hải Yến'];
+  const drawDocs = (x, w, h) => {
+    x.fillStyle = '#f7f3ec'; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#0E2A33'; x.textAlign = 'center'; x.font = `800 ${h * 0.085}px "Bricolage Grotesque", sans-serif`; x.fillText('ĐỘI NGŨ BÁC SĨ', w / 2, h * 0.11);
+    DOC_WALL.forEach((n, i) => {
+      const row = i < 4 ? 0 : i < 8 ? 1 : 2, inRow = row < 2 ? 4 : 3, col = row < 2 ? i % 4 : i - 8;
+      const cw = w / 4.4, cx = w / 2 + (col - (inRow - 1) / 2) * cw, cy = h * (0.3 + row * 0.29), r = h * 0.085;
+      x.fillStyle = '#dcefec'; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill();
+      x.fillStyle = '#0F7C86'; x.beginPath(); x.arc(cx, cy - r * 0.2, r * 0.42, 0, Math.PI * 2); x.fill();
+      x.beginPath(); x.ellipse(cx, cy + r * 0.75, r * 0.7, r * 0.45, 0, Math.PI, 0); x.fill();
+      x.lineWidth = 4; x.strokeStyle = '#D9536F'; x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.stroke();
+      x.fillStyle = '#0E2A33'; x.font = `600 ${h * 0.042}px "Be Vietnam Pro", sans-serif`; x.fillText(n, cx, cy + r + h * 0.05);
+    });
+  };
+  const drawCases = (x, w, h) => {
+    x.fillStyle = '#f7f3ec'; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#0E2A33'; x.textAlign = 'center'; x.font = `800 ${h * 0.085}px "Bricolage Grotesque", sans-serif`; x.fillText('KẾT QUẢ ĐIỀU TRỊ', w / 2, h * 0.11);
+    const smile = (cx, cy, s, straight) => {
+      x.fillStyle = '#c9475f'; x.beginPath(); x.ellipse(cx, cy, s * 1.6, s * 0.8, 0, 0, Math.PI * 2); x.fill();
+      for (let k = -3; k <= 3; k++) { const dy = straight ? 0 : ((k * 37) % 5 - 2) * s * 0.08, rot = straight ? 0 : ((k * 53) % 7 - 3) * 0.06;
+        x.save(); x.translate(cx + k * s * 0.4, cy - s * 0.15 + dy); x.rotate(rot); x.fillStyle = '#fffdf8'; x.fillRect(-s * 0.17, -s * 0.3, s * 0.34, s * 0.55); x.restore(); }
+    };
+    for (let i = 0; i < 6; i++) {
+      const col = i % 3, row = Math.floor(i / 3), tw = w * 0.3, th = h * 0.36, tx = w * 0.035 + col * (tw + w * 0.0175), ty = h * 0.18 + row * (th + h * 0.04);
+      x.fillStyle = '#ffffff'; x.fillRect(tx, ty, tw, th);
+      [[0.27, false, 'TRƯỚC'], [0.73, true, 'SAU']].forEach(([fx, st, lab]) => {
+        smile(tx + tw * fx, ty + th * 0.5, th * 0.17, st);
+        x.fillStyle = st ? '#0F7C86' : '#557079'; x.font = `700 ${th * 0.12}px "Be Vietnam Pro", sans-serif`; x.fillText(lab, tx + tw * fx, ty + th * 0.9);
+      });
+    }
+  };
   function speckle(fx, n = 9000) { for (let i = 0; i < n; i++) { fx.fillStyle = i % 2 ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)'; fx.fillRect(Math.random() * 1024, Math.random() * 768, 2, 2); } }
 
   /* ==================================================================
@@ -684,6 +727,10 @@ dl.info dd { margin: 0; }
   addSign(makeSign('Bảng giá', 'Dịch vụ 2026'), -1.4, 2.6, 3.4);
   bookcase(-4.5, woodM, terracotta);
   addSign(makeSign('Thư viện kiến thức', 'Đọc trước khi khám'), -4.5, 3.4, D - 0.9);
+  photoWall(-W + 0.2, 1.5, Math.PI / 2, 4.4, 2.6, drawDocs);
+  addSign(makeSign('Đội ngũ bác sĩ', '11 bác sĩ chuyên khoa'), -W + 1.4, 3.6, 1.5);
+  photoWall(W - 0.2, -2.3, -Math.PI / 2, 4.0, 2.4, drawCases);
+  addSign(makeSign('Kết quả điều trị', 'Trước & sau'), W - 1.4, 3.6, -2.3);
 
   // --- Dãy phòng phía sau, ngăn bằng vách ---
   wallX(-4.5, -W, -9, [[-11.7, -10.2]], 'solid');      // X-quang
@@ -806,6 +853,8 @@ dl.info dd { margin: 0; }
   addSign(makeSign('Phòng chờ VIP', 'Thúy Đức Premium'), 8.5, 3.3, 3.2);
   bookcase(-5, mat(0x7a5236, { roughness: 0.6 }), velvet);
   addSign(makeSign('Thư viện kiến thức', 'Niềng răng · Invisalign'), -5, 3.4, D - 0.9);
+  photoWall(8.5, 0.2 - 0.09, Math.PI, 4.0, 2.4, drawCases);
+  addSign(makeSign('Kết quả điều trị', 'Trước & sau'), 8.5, 3.6, -1.0);
 
   // --- Hành lang đèn đỏ, bảng chỉ dẫn, dãy phòng ---
   [-0.35, -4.35].forEach(z => box(20.5, 0.05, 0.1, new THREE.MeshBasicMaterial({ color: 0xff4d5e }), 5.75, CEIL - 0.05, z));
@@ -1039,10 +1088,45 @@ dl.info dd { margin: 0; }
       open = -1; show(-1);
     };
   }
+  // Kết quả điều trị: ảnh trước – sau của khách hàng, theo nhakhoathuyduc.com.vn/khach-hang
+  // mỗi ca: [ảnh, khách hàng, tình trạng ban đầu, gói niềng / khí cụ, số khay, thời gian niềng]
+  const CASES = [[["2025/12/t-phuong-1996.jpg","T. Phương 1996","","Lite Invisalign","19 khay","3 năm"],["2025/12/thanh-huyen-1997.jpg","Thu Thuỷ 1992","Răng hô, khấp khểnh","Moderate Invisalign","","1 năm"],["2025/12/thu-thuy-1992.jpg","Thu Thuỷ 1992","Khớp cắn ngược","Moderate Invisalign","","Hơn 2 năm"],["2025/12/thu-thuy-1986.jpg","Thu Thuỷ 1986","Hô, khấp khểnh","Full Invisalign","","2 năm"],["2025/12/v-chien-1998.jpg","V Chiến 1998","Răng hô chìa, khấp khểnh","Full Invisalign","47 khay","3 năm"],["2025/12/the-duong-1985.jpg","Thế Dương 1985","Răng hô, khấp khểnh, khớp cắn lệch","Full Invisalign","66 khay","2 năm"],["2025/12/dinh-nguyen-2006.jpg","Đình Nguyên 2006","Khớp cắn sâu, răng khấp khểnh","Moderate Invisalign","26 khay","2 năm"],["2025/12/nguyen-xiem-1992.jpg","N. Xiêm 1992","Răng hô","Invisalign","61 khay","2 năm"],["2025/12/trung-dung-2008.jpg","T. Phương 1996","Răng hô, khấp khểnh","Full Invisalign","37 khay","1.5 năm"],["2024/09/z5859310957536_c4b1f67e8e8b4a4100b732f00ab33cc8.jpg","Vũ Quý Đôn 2003","Răng hô, khấp khểnh","Full Invisalign","","Hơn 2 năm"],["2024/09/z5859310936783_06552c8098653bf167c57ed1dfae6ac5.jpg","Vũ Minh Thư 2008","Răng hô, khấp khểnh","Full Invisalign","","2 năm"],["2024/09/z5859310936694_3c2d23613a80af3a42cc216895afffa3.jpg","Trương Thị Mai Hương 1991","Khớp cắn sâu","Full Invisalign","","2 năm"],["2024/09/z5859310936680_362dd3c6e95d67f546a78382eea103e7.jpg","Trần Thị Hồng 1996","Răng khấp khểnh","Full Invisalign","","Hơn 2 năm"],["2024/09/z5859310936675_a11d9e10d3d5738e74c9340dcefc4f3a.jpg","Lê Thị Quyên 1985","Răng hô, khấp khểnh","Moderate Invisalign","","Hơn 1 năm"],["2024/02/trinh-tra-huong.jpg","Trịnh Trà Hương 1992","Khớp cắn ngược","Invisalign","","Hơn 2 năm"],["2024/02/tran-quynh-trang.jpg","Trần Quỳnh Trang 2000","Răng hô, khấp khểnh","Full Invisalign","","2 năm"],["2024/02/tran-minh-thu.jpg","Trần Minh Thư 1982","Răng hô, khấp khểnh, khớp cắn sâu","Full Invisalign","","Gần 2 năm"],["2024/02/tran-hai-van.jpg","Trần Hải Vân 1990","Răng khấp khểnh, khớp cắn ngược","Full Invisalign","","Hơn 2 năm"],["2024/02/tran-hai-nguyen.jpg","Trần Hải Nguyên 1990","Răng khấp khểnh, khớp cắn hở","Full Invisalign","","2 năm"],["2024/02/phan-huyen-linh.jpg","Phan Huyền Linh 2005","Răng khấp khểnh, khớp cắn sâu","Full Invisalign","","2 năm"],["2024/02/phan-hoang-yen.jpg","Phan Hoàng Yến 1992","Khớp cắn sâu","Invisalign","","Hơn 2 năm"],["2024/02/pham-bao-chau.jpg","Phạm Bảo Châu 2011","Răng hô, khấp khểnh","Full Invisalign","","Hơn 2 năm"],["2024/02/nguyen-tu-anh.jpg","Nguyễn Tú Anh 1994","Khớp cắn đối đầu","Full Invisalign","","Hơn 2 năm"],["2024/02/nguyen-thu-trang.jpg","Nguyễn Thu Trang 1998","Răng khấp khểnh","Invisalign","","2 năm"],["2024/02/nguyen-thi-phong-lan.jpg","Nguyễn Thị Phong Lan 1990","Răng khấp khểnh","Full Invisalign","","2 năm"],["2024/02/nguyen-thanh-tung.jpg","Nguyễn Thanh Tùng 1991","Răng khấp khểnh","Invisalign","","Hơn 1 năm"],["2024/02/nguyen-minh-trang.jpg","Nguyễn Minh Trang 1997","Răng khấp khểnh","Invisalign","","Gần 2 năm"],["2024/02/nguyen-minh-nguyet.jpg","Nguyễn Minh Nguyệt 1976","Răng hô, khấp khểnh","Full Invisalign","","Hơn 2 năm"],["2024/02/nguyen-ly-ly.jpg","Nguyễn Ly Ly 1999","Răng hô, khấp khểnh","Moderate Invisalign","","2 năm"],["2024/02/nguyen-huu-son.jpg","Nguyễn Hữu Sơn 1996","Răng khấp khểnh, khớp cắn ngược","Full Invisalign","","Hơn 2 năm"],["2024/02/nguyen-dieu-huong.jpg","Nguyễn Diệu Hương 1999","Khớp cắn hở","Full Invisalign","","2 năm"],["2024/02/nguyen-bich-phuong.jpg","Nguyễn Bích Phương 2001","Răng hô, khấp khểnh","Full Invisalign","","Gần 2 năm"],["2024/02/ngo-thu-anh.jpg","Ngô Thu Anh 2002","Răng khấp khểnh, khớp cắn đối đầu","Full Invisalign","","Hơn 2 năm"],["2024/02/hoang-phuong-anh.jpg","Hoàng Phương Anh 2006","Răng khấp khểnh","Full Invisalign","","Hơn 2 năm"],["2024/02/dao-hoai-trang.jpg","Đào Hoài Trang 1991","Răng hô, khấp khểnh","Full Invisalign","","Hơn 2 năm"],["2024/02/cao-thi-huong.jpg","Cao Thị Hương 1958","Răng hô, khấp khểnh","Moderate Invisalign","","Gần 2 năm"],["2024/02/bach-thu-hong.jpg","Bạch Thu Hồng 1996","Răng hô, khấp khểnh","Invisalign","","Hơn 1 năm"],["2023/11/vu-hong-van.jpg","Vũ Hồng Vân 1991","Khớp cắn ngược, khấp khểnh","Full Invisalign","","Hơn 2 năm"],["2023/11/thanh-huong.jpg","Vũ Thanh Hường 1987","Khớp cắn sâu, khấp khểnh","Full Invisalign","","2 năm"],["2023/11/ly-dieu-linh.jpg","Lý Diệu Linh 1996","Răng hô, khấp khểnh","Full Invisalign","","2 năm"],["2023/11/le-nhung.jpg","Bùi Lê Nhung 1985","Răng hô, khấp khểnh","Full Invisalign","","Hơn 2 năm"],["2023/11/huong-lien.jpg","Nguyễn Hương Liên 1991","Răng hô, khấp khểnh","Full Invisalign","","Gần 2 năm"],["2023/11/chi-dung.jpg","Nguyễn Chí Dũng 1999","Răng thưa, khớp cắn đối đầu","Moderate Invisalign","","2 năm"]],[["2025/12/p-khang-2015-1-640x500.jpg","Gia Phúc 2013","Răng khe thưa, hô nhẹ","Invisalign First","","Hơn 1 năm"],["2025/12/g-phuc-2013-640x500.jpg","Gia Phúc 2013","Răng hô","Invisalign First","","2 năm"],["2025/12/ha-phuong-2015-640x500.jpg","Hà Phương 2015","Răng khấp khểnh","Invisalign First","","11 tháng"],["2025/12/ngan-khanh-2013-640x500.jpg","Ngân Khánh 2013","Răng khấp khểnh","Invisalign First","","11 tháng"],["2025/12/tai-duc-2015-640x500.jpg","Tài Đức 2015","Khớp cắn ngược, răng khấp khểnh","Invisalign First","","Hơn 1 năm"],["2025/12/a-thu-2014-640x500.jpg","Anh Thư 2014","Răng hô, khấp khểnh","Invisalign First","","2 năm"],["2025/12/n-dung-2014-640x500.jpg","N Dũng 2014","Khấp khểnh răng","Invisalign First","","Hơn 1 năm"],["2024/09/z5793337550566_1dbd5020ae81690411a625629327d900-640x500.jpg","Lương Ngọc Diệu Châu 2009","Răng hô, khấp khểnh, khớp cắn sâu","Invisalign First","","Hơn 1 năm"],["2024/09/z5793337550522_3c388c6df525fb41019a111b0aa7b016-640x500.jpg","Nguyễn An Phú 2013","Răng hô, khấp khểnh","Invisalign First","","Hơn 1 năm"],["2024/09/z5793337550473_724cf531bea73c408732bf8d0b956893-640x500.jpg","Nguyễn Bảo Hân 2015","Khớp cắn ngược, khấp khểnh","Invisalign First","","1 năm"],["2024/09/z5793337550472_d1405f0b5c36c27e0150a4e9f3fc71be-640x500.jpg","Nguyễn Minh Khang 2014","Khớp cắn ngược, khấp khểnh","Invisalign First","","Hơn 1 năm"],["2024/09/z5793337550424_70bf6e271d16f00f91142428ba395da9-640x500.jpg","Phạm Gia Linh 2013","Răng hô, khấp khểnh, khớp cắn sâu","Invisalign First","","Hơn 1 năm"],["2024/09/z5793337550423_e8b1144fd86958c7b6afdfd1bd5180d8-640x500.jpg","Trịnh Tú Linh 2014","Khớp cắn ngược, khấp khểnh","Invisalign First","","Hơn 1 năm"],["2024/09/z5793337550385_bfe41b8bb82c6f7e9195d5dc54855351-640x500.jpg","Vũ Chí Hiếu 2011","Răng hô, khấp khểnh, khớp cắn sâu","Invisalign First","","Hơn 1 năm"],["2024/09/z5793337593616_0670d9b4002842dd75f9a6024d997735-640x500.jpg","Đào Thu Phương 2013","Răng hô, khấp khểnh","Invisalign First","","Hơn 1 năm"],["2024/09/z5793337550361_207eacfebe2c652ee4ae22ef31bd8b23-640x500.jpg","Vũ Hoàng Nam 2013","Khớp cắn đối đầu, khấp khểnh","Invisalign First","","Hơn 1 năm"],["2024/09/z5793337550567_5483a11f520222b9e389c13c1247d6ed-640x500.jpg","Đoàn Linh Lam 2011","Răng khấp khểnh","Invisalign First","","Hơn 1 năm"]],[["2025/12/lam-oanh-1995-1-640x500.jpg","Lâm Oanh 1995","Răng hô, khấp khểnh","Mắc cài sứ tự động Damon Clear","","Hơn 3 năm"],["2025/12/thu-thao-2000-640x500.jpg","Thu Thảo 2000","Khớp cắn ngược, khấp khểnh","Mắc cài sứ tự động Damon Clear","",""],["2025/12/thanh-huyen-2000-640x500.jpg","Thanh Huyền 2000","Hô, khấp khểnh nặng","Mini Diamond","","Hơn 2 năm"],["2025/12/viet-hoang-2001-640x500.jpg","Việt Hoàng 2001","Hô, khấp khểnh","Mắc cài kim loại tự động Damon Q","","2 năm"],["2025/12/ngan-ha-1999-640x500.jpg","Ngân Hà 1999","Hô, răng khấp khểnh","Mắc cài kim loại tự động Damon Q","","Hơn 3 năm"],["2025/12/van-tan-2003-640x500.jpg","Văn Tân 2003","Khớp cắn ngược, khấp khểnh","Mắc cài kim loại tự động Damon Q","","2 năm"],["2025/12/mai-le-2003-640x500.jpg","Mai Lê 2003","Khớp cắn ngược, khấp khểnh","Mắc cài kim loại tự động Damon Q","","3 năm"],["2025/12/thanh-ngoc-2008-640x500.jpg","Thanh Ngọc 2008","Răng hô, khấp khểnh","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/xuan-thang-640x500.jpg","Xuân Thắng 1993","Khớp cắn hở Khấp khểnh","Mắc cài kim loại thường Mini Diamond","","2 năm"],["2024/02/vu-nhat-tien-640x500.jpg","Vũ Nhật Tiến 1992","Cung hàm hẹp, khớp cắn sâu, răng rất khấp khểnh, thiếu một răng cửa hàm trên bên phải","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/vu-nhat-thai-640x500.jpg","Vũ Nhật Thái 2000","Răng khấp khểnh, khớp cắn sâu, lệch đường giữa","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/truong-huyen-640x500.jpg","Trương Huyền 1992","Hô, khấp khểnh","Mắc cài kim loại thường Mini Diamond","","2 năm"],["2024/02/tran-thi-tuyen-640x500.jpg","Trần Thị Tuyến 1973","Khấp khểnh, khớp cắn đối đầu","Mắc cài sứ thường Symetri","","2 năm"],["2024/02/tran-huong-640x500.jpg","Trần Hương 1982","Răng thưa, hô, chìa","Mắc cài kim loại tự động Damon Q","","2 năm"],["2024/02/tran-hong-640x500.jpg","Trần Hồng 1993","Răng hô, chìa, khấp khểnh","Mắc cài kim thường Mini Diamond","","Hơn 2 năm"],["2024/02/tra-my-640x500.jpg","Trà My 1997","Hô, khấp khểnh","Mắc cài kim loại thường Mini Diamond","","2 năm"],["2024/02/thuy-tram-640x500.jpg","Thùy Trâm 1992","Khớp cắn sâu, hô, khấp khểnh","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/thu-thao-640x500.jpg","Thu Thảo 1995","Hô, khấp khểnh","Mắc cài kim loại thường Mini Diamond","","Hơn 2 năm"],["2024/02/thu-hien-640x500.jpg","Thu Hiền 1996","Khớp cắn ngược, khấp khểnh răng","Mắc cài sứ tự động Damon Clear","","2 năm"],["2024/02/thanh-ngoc-640x500.jpg","Thanh Ngọc 2003","Khớp cắn sâu, hô chìa, khấp khểnh","Mắc cài sứ tự động Damon Clear","","Gần 2 năm"],["2024/02/phuong-lien-640x500.jpg","Phương Liên 2000","Khớp cắn sâu, khấp khểnh","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/pham-thao-640x500.jpg","Phạm Thảo 1991","Lệch khớp cắn, khấp khểnh răng","Mắc cài kim loại tự động Damon Q","","2 năm"],["2024/02/nguyet-640x500.jpg","N.T.Nguyệt 2000","Khấp khểnh","Mắc cài kim loại thường Mini Diamond","","2 năm"],["2024/02/nguyet-anh-640x500.jpg","Nguyệt Ánh 1998","Răng hô, khấp khểnh","Mắc cài kim loại tự động Damon Q","","Gần 3 năm"],["2024/02/ngo-hong-640x500.jpg","Hồng Ngô 2000","Răng khấp khểnh","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/my-ngoc-640x500.jpg","Mỹ Ngọc 1994","Hô chìa, khấp khểnh răng","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/minh-trang-640x500.jpg","Minh Trang 2006","Hô, khấp khểnh, khớp cắn sâu","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/mai-linh-640x500.jpg","Mai Linh 2001","Hô, khấp khểnh","Mắc cài kim loại thường Mini Diamond","","2 năm"],["2024/02/mac-phuong-640x500.jpg","Mạc Phương 1999","Hô răng 2 hàm, khấp khểnh, răng hàm dưới ngả lưỡi","Mắc cài kim thường Mini Diamond","","Gần 2 năm"],["2024/02/le-ngoc-linh-640x500.jpg","Lê Ngọc Linh 1994","Khớp cắn sâu, hô chìa, khấp khểnh răng","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/lan-uyen-640x500.jpg","Lan Uyên 2001","Hô, khấp khểnh","Mắc cài kim loại thường Mini Diamond","","2 năm"],["2024/02/kim-thoa-640x500.jpg","Kim Thoa 1991","Khớp cắn sâu, khấp khểnh răng","Mắc cài kim loại thường Mini Diamond","","2 năm"],["2024/02/hong-ngoc-640x500.jpg","Hồng Ngọc 1994","Khớp cắn sâu, răng hô chìa","Mắc cài kim loại tự động Damon Q","","Gần 2 năm"],["2024/02/hoang-duc-hien-640x500.jpg","Hoàng Đức Hiền 1998","Khớp cắn ngược khấp khểnh, thiếu 1 răng cửa dưới","Mắc cài kim loại tự động Damon Q","","2 năm"],["2024/02/ha-my-640x500.jpg","Hà My 1991","Hô, khấp khểnh","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/ha-giang-640x500.jpg","Hà Giang 2000","Răng hô, khấp khểnh","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/do-phuong-640x500.jpg","Đỗ Phương 1989","Hô, thưa","Mắc cài kim loại tự động Damon Q","","Hơn 2 năm"],["2024/02/cam-linh-640x500.jpg","Cẩm Linh 1995","Hô, khấp khểnh","Mắc cài kim loại thường Mini Diamond","","Hơn 2 năm"],["2023/11/img_1709-640x500.jpg","Trần Mạnh Hiếu 1997","Răng khấp khểnh","Mắc cài Damond Q","","2 năm"],["2023/11/img_1707-640x500.jpg","Ngô Thị Thùy Dung 1990","Răng hô, khấp khểnh","Mắc cài sứ thường Symetri","","2 năm"],["2023/11/img_1712-640x500.jpg","Đặng Thu Phương 1988","Khớp cắn sâu","Mắc cài sứ tự động Damon Clear","","2 năm"],["2023/11/img_1711-640x500.jpg","Bùi Thị Thảo 1993","Răng khấp khểnh","Mắc cài kim loại tự động","","Hơn 2 năm"],["2023/11/img_1708-640x500.jpg","Nguyễn Đinh Đạt 2003","Răng thưa, hô","Mắc cài Mini Diamond","","Hơn 1 năm"],["2023/11/img_1706-640x500.jpg","Mai Thị Duyên 1996","Răng hô, khấp khểnh","Mắc cài Mini Diamond","","2 năm"]],[["2025/12/thu-hang.jpg","Thu Hằng","","","",""],["2024/02/le-thi-thuy-nga.jpg","Lê Thị Thùy Nga 1980","","","",""],["2024/02/tran-thi-lon.jpg","Trần Thị Lơn 1972","","","",""],["2024/02/tran-le-thuy.jpg","Trần Lệ Thủy 1974","","","",""],["2024/02/tran-dieu-linh.jpg","Trần Diệu Linh 1994","","","",""],["2024/02/pham-phuong-thao.jpg","Phạm Phương Thảo 1986","","","",""],["2024/02/pham-thi-tuyet-thu.jpg","Phạm Thị Tuyết Thu 1979","","","",""],["2024/02/nguyen-thi-mai-lan.jpg","Nguyễn Thị Mai Lan 1993","","","",""],["2024/02/nguyen-kim-anh.jpg","Nguyễn Kim Anh 2000","","","",""],["2024/02/nguyen-thi-thom.jpg","Nguyễn Thị Thơm 1999","","","",""],["2024/02/nguyen-thi-thu-hang-copy.jpg","Nguyễn Thị Bích Vân 1973","","","",""]],[["2025/12/hong-quan-1987.jpg","Hồng Quân 1987","","","",""],["2025/12/minh-hoang-1998-1.jpg","Minh Hoàng 1988","","","",""],["2025/12/t-thuy-1969.jpg","T Thúy 1969","","","",""],["2025/12/thanh-thuy-1976.jpg","Thanh Thủy 1976","","","",""],["2025/12/lan-anh-1989.jpg","Lan Anh 1989","","","",""],["2025/12/v-minh-1989.jpg","V Minh 1989","","","",""],["2025/12/t-quyen-1994.jpg","T Quyền 1994","","","",""],["2025/12/tran-phuong-1969.jpg","Trần Phượng 1969","","","",""],["2024/02/dinh-thi-phuc-1961.jpg","Đinh Thị Phúc 1961","","","",""],["2024/02/truong-khanh-toan.jpg","Trương Khánh Toàn 1996","","","",""],["2024/02/tran-thi-oanh.jpg","Trần Thị Oanh 1998","","","",""],["2024/02/dao-thu-hang.jpg","Đào Thu Hằng 1968","","","",""],["2024/02/chuc-thi-cuong.jpg","Chúc Thị Cương 1994","","","",""],["2024/02/bui-tuyet-nga.jpg","Bùi Tuyết Nga 1980","","","",""],["2023/11/le-nguyen-anh-thu-1988.jpg","Lê Nguyễn Anh Thư 1988","","","",""],["2023/11/dang-giang-1990.jpg","Đặng Thị Giang 1990","","","",""]]];
+  const CASE_TABS = ['Niềng Invisalign', 'Invisalign First (6–10 tuổi)', 'Niềng mắc cài', 'Bọc răng sứ', 'Cấy ghép Implant'], CASE_PAGE = 12;
+  const results = first => () => `<p class="lead">Hình ảnh trước và sau điều trị của khách hàng Nha khoa Thúy Đức. Bấm vào một ca để xem lớn và đọc chi tiết.</p>
+    <div class="chips" id="case-tabs" data-first="${first}">${CASE_TABS.map((t, i) => `<button class="chip" type="button" data-tab="${i}" aria-pressed="false">${t} <small>${CASES[i].length}</small></button>`).join('')}</div>
+    <div class="docs cases" id="cases"></div>
+    <button class="btn soft" type="button" id="case-more" hidden>Xem thêm</button>
+    <p class="todo">Xem toàn bộ trên <a href="${SITE}khach-hang/" target="_blank" rel="noopener">nhakhoathuyduc.com.vn/khach-hang</a>.</p>`;
+  function caseInit() {
+    const grid = $('cases'), tabs = $('case-tabs'), more = $('case-more');
+    let tab = +tabs.dataset.first, shown = 0, open = -1;
+    const card = i => { const [img, n, c] = CASES[tab][i];
+      return `<button class="doc" type="button" data-i="${i}" aria-expanded="false"><span class="ph"><i>✦</i><img src="${UP}${img}" alt="Trước và sau: ${n}" loading="lazy" onerror="this.remove()"></span>
+        <span class="dn"><b>${n}</b>${c ? `<small>${c}</small>` : ''}</span></button>`; };
+    const page = () => { const end = Math.min(CASES[tab].length, shown + CASE_PAGE); let h = ''; for (let i = shown; i < end; i++) h += card(i); grid.insertAdjacentHTML('beforeend', h); shown = end; more.hidden = shown >= CASES[tab].length; };
+    const pick = t => { tab = t; shown = 0; open = -1; grid.innerHTML = ''; tabs.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', +b.dataset.tab === t)); page(); };
+    const show = i => {
+      grid.querySelector('.docd')?.remove();
+      grid.querySelectorAll('.doc').forEach(b => b.setAttribute('aria-expanded', +b.dataset.i === i));
+      if (i < 0) return;
+      const [img, n, c, p, k, t] = CASES[tab][i];
+      const rows = [['Tình trạng ban đầu', c], [tab < 3 ? (tab === 2 ? 'Khí cụ' : 'Gói niềng') : 'Dịch vụ', p || (tab > 2 ? CASE_TABS[tab] : '')], ['Số khay', k], ['Thời gian', t]].filter(r => r[1]);
+      const d = document.createElement('div'); d.className = 'docd';
+      d.innerHTML = `<img class="big" src="${UP}${img}" alt="Trước và sau: ${n}"><header><b>${n}</b><small>${CASE_TABS[tab]}</small></header>
+        ${rows.length ? `<dl class="info">${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>` : ''}`;
+      grid.querySelector(`[data-i="${i}"]`).after(d);
+    };
+    grid.onclick = e => { const b = e.target.closest('.doc'); if (!b) return; open = open === +b.dataset.i ? -1 : +b.dataset.i; show(open); };
+    tabs.onclick = e => { const b = e.target.closest('[data-tab]'); if (b) pick(+b.dataset.tab); };
+    more.onclick = page;
+    pick(tab);
+  }
   const z3 = floors[3].zones, z4 = floors[4].zones;
   z3.push(
     { name: 'Thang máy', sub: 'Lên tầng 4', pos: [-13.6, 8], body: () => lift(3) },
     { name: 'Thư viện kiến thức', sub: 'Bài viết của bác sĩ', pos: [-4.5, 9.9], body: library('nha-khoa-tong-quat') },
+    { name: 'Đội ngũ bác sĩ', sub: '11 bác sĩ chuyên khoa', pos: [-14.2, 1.5], body: team },
+    { name: 'Kết quả điều trị', sub: 'Hình ảnh trước & sau', pos: [14.2, -2.3], body: results(2) },
     { name: 'Lễ tân', sub: 'Đặt lịch · gửi phim · liên hệ', pos: [-7, 3.9], npc: rec3, role: 'Lễ tân', say: 'Chào bạn! Thúy Đức mở cửa 08:00 – 18:30 tất cả các ngày trong tuần.', body: contact },
     { name: 'Phòng chờ', sub: '20 năm Thúy Đức', pos: [4.9, 8.6], body: () => `<p class="lead">Chuyên sâu để tạo nên khác biệt. Hành trình chăm sóc nụ cười từ năm 2006 đến nay.</p>` + years([
       ['2006', 'Thành lập', 'TS. Phạm Văn Việt, nguyên quyền trưởng khoa Răng Hàm Mặt bệnh viện Hữu Nghị Việt Xô, thành lập Nha khoa Thúy Đức.'],
@@ -1074,6 +1158,7 @@ dl.info dd { margin: 0; }
   z4.push(
     { name: 'Thang máy', sub: 'Xuống tầng 3', pos: [-13.6, 8], body: () => lift(4) },
     { name: 'Thư viện kiến thức', sub: 'Bài viết của bác sĩ', pos: [-5, 9.9], body: library('nieng-rang') },
+    { name: 'Kết quả điều trị', sub: 'Hình ảnh trước & sau', pos: [8.5, -1.7], body: results(0) },
     { name: 'Lễ tân tầng 4', sub: 'Đặt lịch · gửi phim · liên hệ', pos: [-7.5, 5.3], npc: rec4, role: 'Lễ tân', say: 'Chào mừng bạn đến tầng Invisalign của Thúy Đức Premium!', body: contact },
     { name: 'Khay Invisalign', sub: 'Công nghệ iTero', pos: [-13.8, 2.6], body: () => `<p class="lead">Mỗi hộp trên tường là bộ khay niềng của một khách hàng đang điều trị.</p>` + items([
       ['iTero Lumina (2024)', 'Máy quét dấu răng thế hệ mới: đầu quét nhỏ hơn 50%, phổ quét gấp 3, tốc độ xử lý gấp 2.'],
@@ -1253,6 +1338,7 @@ dl.info dd { margin: 0; }
     if ($('up')) sendFilm();
     if ($('lib-q')) libInit();
     if ($('docs')) teamInit();
+    if ($('cases')) caseInit();
     $('pBody').querySelectorAll('[data-floor]').forEach(b => b.onclick = () => changeFloor(+b.dataset.floor));
   }
   // Gửi phim/ảnh: điện thoại dùng bảng chia sẻ (chọn Zalo, ảnh đi kèm); máy tính sao chép lời nhắn rồi mở chat Zalo để khách kéo ảnh vào
