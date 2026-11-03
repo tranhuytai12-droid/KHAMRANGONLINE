@@ -1331,7 +1331,7 @@ dl.info dd { margin: 0; }
     </section>
     <p class="todo">Form trong bản 3D này chưa nối với hệ thống của phòng khám. Để đặt lịch thật, gọi hotline hoặc vào <a href="${SITE}" target="_blank" rel="noopener">nhakhoathuyduc.com.vn</a>.</p>`;
   const lift = n => `<p class="lead">Bạn đang ở ${fl(n).toLowerCase()}. Chọn nơi muốn đến.</p>
-    <div class="lift">${[[3, 'Lễ tân · chờ · X-quang · điều trị'], [4, 'Invisalign · VIP · tư vấn'], [CLUB, 'Bar club · sàn nhảy · DJ'], [STAFF, staffOk ? 'Võ đài · góc nghỉ' : 'Cần mật khẩu']].map(([f, s]) =>
+    <div class="lift">${[[3, 'Lễ tân · chờ · X-quang · điều trị'], [4, 'Invisalign · VIP · tư vấn'], [CLUB, locked(CLUB) ? 'Cần mật khẩu' : 'Bar club · sàn nhảy · DJ'], [STAFF, locked(STAFF) ? 'Cần mật khẩu' : 'Võ đài · góc nghỉ']].map(([f, s]) =>
       `<button class="btn${n === f ? ' soft' : ''}" type="button" data-floor="${f}" ${n === f ? 'disabled' : ''}>${fl(f)}<small>${s}</small></button>`).join('')}</div>`;
   // Góp ý: lưu vào Firebase (chỉ phòng khám đọc được trong Firebase console), kèm nút sang trang Google Maps của cơ sở 257 Giải Phóng
   const MAPS_URL = 'https://www.google.com/maps?cid=13625386440455977451';
@@ -1358,9 +1358,9 @@ dl.info dd { margin: 0; }
       ['Trên điện thoại', 'Dùng 3 nút tròn ở góc dưới bên phải.']]) +
       `<h3>Hạ gục trong lượt này</h3><dl class="info">${rows.map(([n, w]) => `<dt>${esc(n)}</dt><dd>${w} lần</dd>`).join('')}</dl>`;
   };
-  const staffLock = () => `<p class="lead">Phòng nghỉ và võ đài của nhân viên Thúy Đức. Nhập mật khẩu để vào.</p>
+  const lockForm = n => `<p class="lead">${LOCKS[n].lead}</p>
     <form class="form" id="pw" novalidate><label class="full">Mật khẩu<input id="pw-in" type="password" autocomplete="current-password"></label>
-    <button class="btn full" type="submit">Vào phòng</button><p class="ok full" id="pw-ok" hidden></p></form>`;
+    <button class="btn full" type="submit">${n === CLUB ? "Lên tầng 5" : "Vào phòng"}</button><p class="ok full" id="pw-ok" hidden></p></form>`;
   // Thư viện kiến thức: bài mới nhất mỗi chuyên mục trên nhakhoathuyduc.com.vn/kien-thuc-nha-khoa, bấm để đọc bài gốc
   const LIB = [
     ['nieng-rang', 'Niềng răng', 15, [
@@ -1612,8 +1612,8 @@ dl.info dd { margin: 0; }
   z3.push({ name: 'Góp ý & đánh giá', sub: 'Chấm sao · Google Maps', pos: [8.5, -2.4], body: feedback });
   z4.push({ name: 'Góp ý & đánh giá', sub: 'Chấm sao · Google Maps', pos: [13.5, -1.3], body: feedback });
   z4.push({ name: 'Phòng nhân viên', sub: 'Cửa có khóa · cần mật khẩu', pos: [DOOR_X, D - 1.2], body: () => {
-    passThen = null;
-    return staffOk ? `<p class="lead">Cửa đã mở khóa trên máy này.</p><div class="lift"><button class="btn" type="button" data-floor="${STAFF}">Vào phòng nhân viên<small>Võ đài · góc nghỉ</small></button></div>` : staffLock();
+    passThen = null; passFloor = STAFF;
+    return !locked(STAFF) ? `<p class="lead">Cửa đã mở khóa trên máy này.</p><div class="lift"><button class="btn" type="button" data-floor="${STAFF}">Vào phòng nhân viên<small>Võ đài · góc nghỉ</small></button></div>` : lockForm(STAFF);
   } });
   floors[CLUB].zones.push(
     { name: 'Thang máy', sub: 'Xuống tầng 3 · tầng 4', pos: [-13.6, 8], body: () => lift(CLUB) },
@@ -1701,20 +1701,25 @@ dl.info dd { margin: 0; }
   }
   function changeFloor(n, then) {
     if (cur && cur.n === n) { then && then(); return; }
-    if (n === STAFF && !staffOk) return askPass(then);
+    if (locked(n)) return askPass(n, then);
     const fade = $('fade'); fade.textContent = fl(n); fade.classList.add('on');
     setTimeout(() => { setFloor(n); fade.classList.remove('on'); then && then(); }, reduce ? 0 : 380);
   }
   $('floorBtn').onclick = () => changeFloor(cur.n === 4 ? 3 : 4);
 
-  // Phòng nhân viên: so mã SHA-256 của mật khẩu (trang tĩnh nên chỉ chặn khách thường, không phải bảo mật thật)
-  const STAFF_HASH = 'e0a285ced141cf34e05bd256395099c27d27dcdfca771b9a30e866b0b53cf968';
-  let staffOk = false, passThen = null;
-  try { staffOk = localStorage.getItem('tdc-staff') === STAFF_HASH; } catch (e) {}
+  // Nơi cần mật khẩu: so mã SHA-256 của mật khẩu (trang tĩnh nên chỉ chặn khách thường, không phải bảo mật thật); nhập đúng một lần thì máy đó nhớ
+  const LOCKS = {
+    [STAFF]: { hash: 'e0a285ced141cf34e05bd256395099c27d27dcdfca771b9a30e866b0b53cf968', key: 'tdc-staff', name: 'Phòng nhân viên', lead: 'Phòng nghỉ và võ đài của nhân viên Thúy Đức. Nhập mật khẩu để vào.' },
+    [CLUB]: { hash: 'e5bedce65d8349e689a0ce8578412b34b78669965aa073a3677f2ed8c6d4f6fe', key: 'tdc-club', name: 'Tầng 5 · Bar club', lead: 'Bar club tầng 5 chỉ dành cho khách có mật khẩu. Nhập mật khẩu để lên.' }
+  };
+  const unlocked = {};
+  for (const n in LOCKS) try { unlocked[n] = localStorage.getItem(LOCKS[n].key) === LOCKS[n].hash; } catch (e) {}
+  const locked = n => !!LOCKS[n] && !unlocked[n];
+  let passThen = null, passFloor = STAFF;
   const sha256 = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map(b => b.toString(16).padStart(2, '0')).join('');
-  function askPass(then) {
-    passThen = then || null; closeGo();
-    openPanel({ name: 'Phòng nhân viên', sub: 'Cần mật khẩu', floor: cur.n, body: staffLock });
+  function askPass(n, then) {
+    passThen = then || null; passFloor = n; closeGo();
+    openPanel({ name: LOCKS[n].name, sub: 'Cần mật khẩu', floor: cur.n, body: () => lockForm(n) });
     setTimeout(() => $('pw-in') && $('pw-in').focus(), 50);
   }
   function fbInit() {
@@ -1746,9 +1751,10 @@ dl.info dd { margin: 0; }
       e.preventDefault();
       const ok = $('pw-ok'), v = $('pw-in').value;
       if (!crypto.subtle) { ok.textContent = 'Trình duyệt này không kiểm tra được mật khẩu.'; ok.hidden = false; return; }
-      if (await sha256(v) !== STAFF_HASH) { ok.textContent = 'Sai mật khẩu, thử lại nhé.'; ok.hidden = false; $('pw-in').select(); return; }
-      staffOk = true; try { localStorage.setItem('tdc-staff', STAFF_HASH); } catch (err) {}
-      closePanel(); buildMenu(); changeFloor(STAFF, passThen);
+      const L = LOCKS[passFloor];
+      if (await sha256(v) !== L.hash) { ok.textContent = 'Sai mật khẩu, thử lại nhé.'; ok.hidden = false; $('pw-in').select(); return; }
+      unlocked[passFloor] = true; try { localStorage.setItem(L.key, L.hash); } catch (err) {}
+      closePanel(); buildMenu(); changeFloor(passFloor, passThen);
     });
   }
 
@@ -2060,7 +2066,7 @@ dl.info dd { margin: 0; }
   // menu "Đi tới" theo tầng; chọn khu ở tầng khác sẽ đi thang máy trước
   const goMenu = $('goMenu'), goBtn = $('goBtn');
   function buildMenu() {
-    goMenu.innerHTML = [3, 4, CLUB, STAFF].map(n => `<h4>${fl(n)}${cur && cur.n === n ? ' · bạn đang ở đây' : n === STAFF && !staffOk ? ' · cần mật khẩu' : ''}</h4>` +
+    goMenu.innerHTML = [3, 4, CLUB, STAFF].map(n => `<h4>${fl(n)}${cur && cur.n === n ? ' · bạn đang ở đây' : locked(n) ? ' · cần mật khẩu' : ''}</h4>` +
       floors[n].zones.map((z, i) => `<button type="button" data-f="${n}" data-i="${i}"><b>${z.name}</b><small>${z.sub}</small></button>`).join('')).join('');
     goMenu.querySelectorAll('button').forEach(b => b.onclick = () => {
       const n = +b.dataset.f, z = floors[n].zones[+b.dataset.i];
