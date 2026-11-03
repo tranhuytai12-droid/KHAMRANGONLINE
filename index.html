@@ -130,6 +130,20 @@ input, select, textarea {
 .bubble b { color: var(--teal); display: block; font-size: 12px; }
 .tag { position: absolute; transform: translate(-50%, -100%); background: rgba(14,42,51,.78); color: #fff; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; pointer-events: none; }
 #hudOnline { color: var(--teal); font-weight: 600; }
+#fight { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
+#fight .hp { pointer-events: auto; background: var(--sheet); border: 1.5px solid var(--line); border-radius: 999px; padding: 6px 12px; display: flex; align-items: center; gap: 8px; width: 200px; font-size: 13px; }
+#fight .hp i { flex: 1; height: 10px; border-radius: 999px; background: var(--soft); overflow: hidden; }
+#fight .hp span { display: block; height: 100%; width: 100%; background: var(--gum); transition: width .15s; }
+#fight .moves { display: flex; gap: 10px; pointer-events: auto; }
+#fight .moves button { width: 70px; height: 70px; border-radius: 50%; border: 0; background: var(--gum); color: #fff; font-weight: 800; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; box-shadow: 0 10px 24px -12px rgba(0,0,0,.6); touch-action: none; user-select: none; -webkit-user-select: none; }
+#fight .moves #mvBlock { background: var(--ink); color: var(--sheet); }
+#fight .moves button[aria-pressed="true"] { outline: 3px solid var(--teal); outline-offset: 2px; }
+#fight kbd { font: 600 10px var(--body); opacity: .8; }
+@media (pointer: coarse) { #fight kbd { display: none; } }
+#toast { position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 112px); transform: translateX(-50%); background: var(--ink); color: var(--sheet); padding: 10px 18px; border-radius: 999px; font-weight: 700; max-width: calc(100% - 32px); text-align: center; }
+#hurt { position: fixed; inset: 0; pointer-events: none; box-shadow: inset 0 0 120px 30px rgba(217,40,60,.75); opacity: 0; transition: opacity .35s; }
+#hurt.on { opacity: 1; transition: none; }
+.tag.ko { background: rgba(160,30,50,.85); }
 #joy {
   pointer-events: auto; position: absolute; left: max(20px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
   width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,.55); border: 1.5px solid rgba(14,42,51,.15); touch-action: none;
@@ -262,6 +276,16 @@ dl.info dd { margin: 0; }
   <div id="bubbles"></div>
   <div id="prompt" hidden><span id="promptText"></span><kbd>E</kbd><button class="btn" id="promptBtn" type="button">Xem</button></div>
   <div id="joy" aria-hidden="true"><i></i></div>
+  <div id="fight" hidden>
+    <div class="hp"><b>Máu</b><i><span id="hpBar"></span></i><b id="hpTxt">100</b></div>
+    <div class="moves">
+      <button type="button" id="mvBlock" aria-pressed="false">Đỡ<kbd>L</kbd></button>
+      <button type="button" id="mvKick">Đá<kbd>K</kbd></button>
+      <button type="button" id="mvPunch">Đấm<kbd>J</kbd></button>
+    </div>
+  </div>
+  <div id="toast" role="status" hidden></div>
+  <div id="hurt"></div>
 </div>
 
 <div id="panel" hidden>
@@ -294,7 +318,7 @@ dl.info dd { margin: 0; }
 
   /* ================= Nhân vật chibi ================= */
   function makeChibi(o) {
-    const g = new THREE.Group();
+    const g = new THREE.Group(); g.rotation.order = 'YXZ'; // ngã theo hướng mặt khi bị hạ gục
     const skin = mat(o.skin || 0xf6d2b8, { roughness: 0.7 });
     const add = (geo, m, x, y, z, parent = g) => { const me = new THREE.Mesh(geo, m); me.position.set(x, y, z); me.castShadow = true; parent.add(me); return me; };
     const legGeo = new THREE.CylinderGeometry(0.11, 0.1, 0.36, 12); legGeo.translate(0, -0.18, 0);
@@ -403,6 +427,7 @@ dl.info dd { margin: 0; }
 
   const W = 16, D = 12, CEIL = 4.2;
   const floors = {};
+  const fl = n => n === 5 ? 'Phòng nhân viên' : `Tầng ${n}`; // mã 5 là phòng nhân viên
   let F = null; // tầng đang dựng
   const newFloor = n => { const f = { n, g: new THREE.Group(), obstacles: [], zones: [], npcs: [] }; world.add(f.g); floors[n] = f; F = f; return f; };
   const block = (x, z, w, d) => F.obstacles.push({ x0: x - w / 2, x1: x + w / 2, z0: z - d / 2, z1: z + d / 2 });
@@ -892,6 +917,81 @@ dl.info dd { margin: 0; }
   const docDuc = npc({ shirt: 0x1f2f5c, pants: 0x1f2f5c, hair: 0x1f1a17, coat: true }, 14.1, -7.5, 2.7);
   addSign(makeSign('Phòng BS. Đức', 'Invisalign · phục hình'), 12.7, 3.3, -7.5);
 
+  /* ==================================================================
+     PHÒNG NHÂN VIÊN (mã tầng 5, vào bằng mật khẩu ở thang máy): võ đài giữa phòng, bao cát, tủ đồ, sofa
+     ================================================================== */
+  const RX = 2, RH = 4, RY = 0.4, RIN = RH - 0.35, GAP = 1.2;
+  const inRing = p => Math.abs(p.x - RX) < RIN && Math.abs(p.z) < RIN;
+  // độ cao sàn: mặt võ đài cao RY, bậc lên ở cạnh tây
+  const groundY = (x, z) => Math.abs(x - RX) < RH && Math.abs(z) < RH ? RY
+    : x > RX - RH - 1.1 && Math.abs(z) < GAP + 0.1 ? RY * (x - (RX - RH - 1.1)) / 1.1 : 0;
+  newFloor(5);
+  shell(canvasTex(1024, 768, (fx) => {
+    fx.fillStyle = '#33373b'; fx.fillRect(0, 0, 1024, 768); // sàn cao su phòng tập
+    fx.strokeStyle = 'rgba(255,255,255,.06)'; fx.lineWidth = 3;
+    for (let x = 0; x <= 1024; x += 64) { fx.beginPath(); fx.moveTo(x, 0); fx.lineTo(x, 768); fx.stroke(); }
+    for (let y = 0; y <= 768; y += 64) { fx.beginPath(); fx.moveTo(0, y); fx.lineTo(1024, y); fx.stroke(); }
+    speckle(fx, 6000);
+  }));
+  elevator();
+  downlights((x, z) => Math.abs(x - RX) < RH + 1 && Math.abs(z) < RH + 1);
+  // sàn võ đài + thảm in logo
+  box(RH * 2 + 0.4, RY, RH * 2 + 0.4, 0x1c2a4a, RX, RY / 2, 0);
+  { const top = new THREE.Mesh(new THREE.PlaneGeometry(RH * 2, RH * 2), new THREE.MeshStandardMaterial({ roughness: 0.9, map: canvasTex(512, 512, (x) => {
+      x.fillStyle = '#2f5fa8'; x.fillRect(0, 0, 512, 512); x.strokeStyle = '#ffffff'; x.lineWidth = 8; x.strokeRect(14, 14, 484, 484);
+      x.beginPath(); x.arc(256, 256, 96, 0, Math.PI * 2); x.stroke();
+      x.fillStyle = '#ffffff'; x.textAlign = 'center'; x.font = '800 50px "Bricolage Grotesque", sans-serif'; x.fillText('THÚY ĐỨC', 256, 258);
+      x.font = '600 24px "Be Vietnam Pro", sans-serif'; x.fillText('F I G H T   C L U B', 256, 296);
+    }) }));
+    top.rotation.x = -Math.PI / 2; top.position.set(RX, RY + 0.005, 0); top.receiveShadow = true; put(top); }
+  // cột góc đỏ/xanh, 3 tầng dây; cạnh tây chừa lối vào giữa
+  [[-1, -1, 0xd9363e], [1, 1, 0x2f5fa8], [1, -1, 0xffffff], [-1, 1, 0xffffff]].forEach(([sx, sz, c]) => {
+    cyl(0.1, 0.1, 1.5, c, RX + sx * RH, RY + 0.75, sz * RH, null, 12);
+    box(0.24, 0.5, 0.24, c, RX + sx * (RH - 0.1), RY + 1.0, sz * (RH - 0.1));
+  });
+  [-1, 1].forEach(s => cyl(0.06, 0.06, 1.4, 0xffffff, RX - RH, RY + 0.7, s * GAP, null, 10));
+  const ropeM = [mat(0xd9363e), mat(0xffffff), mat(0x2f5fa8)];
+  [0.45, 0.85, 1.25].forEach((h, i) => {
+    const y = RY + h, m = ropeM[i];
+    box(RH * 2, 0.06, 0.06, m, RX, y, RH); box(RH * 2, 0.06, 0.06, m, RX, y, -RH);
+    box(0.06, 0.06, RH * 2, m, RX + RH, y, 0);
+    [-1, 1].forEach(s => box(0.06, 0.06, RH - GAP, m, RX - RH, y, s * (RH + GAP) / 2));
+  });
+  block(RX, RH, RH * 2, 0.25); block(RX, -RH, RH * 2, 0.25); block(RX + RH, 0, 0.25, RH * 2);
+  [-1, 1].forEach(s => block(RX - RH, s * (RH + GAP) / 2, 0.25, RH - GAP));
+  // bậc lên võ đài
+  box(0.55, RY / 3, GAP * 2, 0x3a3f45, RX - RH - 0.83, RY / 6, 0); box(0.55, RY * 2 / 3, GAP * 2, 0x3a3f45, RX - RH - 0.28, RY / 3, 0);
+  // đèn trần trên võ đài
+  box(6, 0.05, 6, new THREE.MeshBasicMaterial({ color: 0xfff3d6 }), RX, CEIL - 0.03, 0);
+  // băng rôn tường bắc
+  { const ban = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.6), new THREE.MeshBasicMaterial({ map: canvasTex(800, 160, (x) => {
+      x.fillStyle = '#0E2A33'; x.fillRect(0, 0, 800, 160); x.fillStyle = '#D9536F'; x.fillRect(0, 140, 800, 20);
+      x.fillStyle = '#ffffff'; x.textAlign = 'center'; x.font = '800 70px "Bricolage Grotesque", sans-serif'; x.fillText('VÕ ĐÀI THÚY ĐỨC', 400, 100);
+    }) }));
+    ban.position.set(RX, 3.0, D - 0.17); ban.rotation.y = Math.PI; put(ban); }
+  // bao cát
+  [-9.5, -7].forEach(x => {
+    cyl(0.02, 0.02, 1.3, steelM, x, CEIL - 0.65, -7, null, 6);
+    cyl(0.32, 0.32, 1.3, 0x8e1830, x, 2.2, -7); cyl(0.33, 0.33, 0.08, 0x1b1f22, x, 2.85, -7);
+    block(x, -7, 0.75, 0.75);
+  });
+  addSign(makeSign('Bao cát', 'Khởi động trước khi lên đài'), -8.25, 3.6, -7);
+  // tủ đồ nhân viên (tường nam) + ghế băng
+  for (let i = 0; i < 8; i++) {
+    box(0.95, 2.1, 0.6, i % 2 ? 0x0f7c86 : 0x14949f, 7 + i, 1.05, -D + 0.45);
+    box(0.04, 0.22, 0.04, steelM, 7 + i + 0.32, 1.1, -D + 0.77);
+  }
+  block(10.5, -D + 0.45, 8, 0.7);
+  box(4, 0.45, 0.6, woodM, 10.5, 0.225, -9.2); block(10.5, -9.2, 4, 0.6);
+  addSign(makeSign('Tủ đồ', 'Nhân viên Thúy Đức'), 10.5, 3.3, -10.4);
+  // góc nghỉ: sofa đỏ, bàn trà, bình nước
+  box(3.6, 0.45, 1.0, 0x8e1830, 11.5, 0.225, D - 1.0); box(3.6, 0.9, 0.3, 0x8e1830, 11.5, 0.45, D - 0.35); block(11.5, D - 0.8, 3.6, 1.3);
+  cyl(0.6, 0.6, 0.06, woodM, 11.5, 0.5, D - 3.0); cyl(0.05, 0.05, 0.5, steelM, 11.5, 0.25, D - 3.0, null, 8); block(11.5, D - 3.0, 1.2, 1.2);
+  box(0.4, 1.1, 0.4, 0xffffff, -W + 0.6, 0.55, 4.6); cyl(0.14, 0.14, 0.4, new THREE.MeshStandardMaterial({ color: 0x9fd8f0, transparent: true, opacity: 0.7 }), -W + 0.6, 1.3, 4.6); block(-W + 0.6, 4.6, 0.5, 0.5);
+  plant(-W + 0.8, -D + 0.8, 1.2); plant(W - 0.8, 4, 1.1);
+  const referee = npc({ shirt: 0x222222, pants: 0x222222, hair: 0x1f1a17 }, RX - RH - 1.9, 2.7, Math.PI / 2);
+  addSign(makeSign('Võ đài', 'Chỉ dành cho nhân viên', '#D9536F'), RX - RH - 1.9, 3.4, 2.7);
+
   /* ================= Nội dung từng khu ================= */
   const items = arr => arr.map(([t, d], i) => `<div class="item"><span class="n">${i + 1}</span><div><b>${t}</b><p>${d}</p></div></div>`).join('');
   const years = arr => arr.map(([y, t, d]) => `<div class="item"><span class="n y">${y}</span><div><b>${t}</b><p>${d}</p></div></div>`).join('');
@@ -934,9 +1034,22 @@ dl.info dd { margin: 0; }
       <p class="todo">Ảnh chỉ nằm trên máy bạn cho tới khi bạn gửi trong Zalo. Zalo phòng khám: <a href="${ZALO_URL}" target="_blank" rel="noopener">${ZALO.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}</a>.</p>
     </section>
     <p class="todo">Form trong bản 3D này chưa nối với hệ thống của phòng khám. Để đặt lịch thật, gọi hotline hoặc vào <a href="${SITE}" target="_blank" rel="noopener">nhakhoathuyduc.com.vn</a>.</p>`;
-  const lift = n => `<p class="lead">Bạn đang ở tầng ${n}. Chọn tầng muốn đến.</p>
-    <div class="lift"><button class="btn${n === 3 ? ' soft' : ''}" type="button" data-floor="3" ${n === 3 ? 'disabled' : ''}>Tầng 3<small>Lễ tân · chờ · X-quang · điều trị</small></button>
-    <button class="btn${n === 4 ? ' soft' : ''}" type="button" data-floor="4" ${n === 4 ? 'disabled' : ''}>Tầng 4<small>Invisalign · VIP · tư vấn</small></button></div>`;
+  const lift = n => `<p class="lead">Bạn đang ở ${fl(n).toLowerCase()}. Chọn nơi muốn đến.</p>
+    <div class="lift">${[[3, 'Lễ tân · chờ · X-quang · điều trị'], [4, 'Invisalign · VIP · tư vấn'], [5, staffOk ? 'Võ đài · góc nghỉ' : 'Cần mật khẩu']].map(([f, s]) =>
+      `<button class="btn${n === f ? ' soft' : ''}" type="button" data-floor="${f}" ${n === f ? 'disabled' : ''}>${fl(f)}<small>${s}</small></button>`).join('')}</div>`;
+  const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+  const arena = () => {
+    const rows = [[cfg.name + ' (bạn)', ft.w], ...[...others.values()].filter(o => o.f === 5).map(o => [o.name, o.w | 0])].sort((a, b) => b[1] - a[1]);
+    return `<p class="lead">Võ đài giải trí của nhân viên. Bước lên bậc thang trước mặt là vào trận; ai hết máu sẽ nằm xuống rồi tự đứng dậy sau 3 giây, ra khỏi đài thì hồi đầy máu.</p>` + items([
+      ['Đấm · phím J hoặc Space', `Mất ${MOVES[1].dmg} máu, ra đòn nhanh.`],
+      ['Đá · phím K', `Mất ${MOVES[2].dmg} máu, tầm xa hơn nhưng chậm hơn.`],
+      ['Đỡ · giữ phím L', 'Chỉ mất 20% máu khi đang quay mặt về phía đối thủ, nhưng đi chậm lại.'],
+      ['Trên điện thoại', 'Dùng 3 nút tròn ở góc dưới bên phải.']]) +
+      `<h3>Hạ gục trong lượt này</h3><dl class="info">${rows.map(([n, w]) => `<dt>${esc(n)}</dt><dd>${w} lần</dd>`).join('')}</dl>`;
+  };
+  const staffLock = () => `<p class="lead">Phòng nghỉ và võ đài của nhân viên Thúy Đức. Nhập mật khẩu để vào.</p>
+    <form class="form" id="pw" novalidate><label class="full">Mật khẩu<input id="pw-in" type="password" autocomplete="current-password"></label>
+    <button class="btn full" type="submit">Vào phòng</button><p class="ok full" id="pw-ok" hidden></p></form>`;
   // Thư viện kiến thức: bài mới nhất mỗi chuyên mục trên nhakhoathuyduc.com.vn/kien-thuc-nha-khoa, bấm để đọc bài gốc
   const LIB = [
     ['nieng-rang', 'Niềng răng', 15, [
@@ -1185,9 +1298,13 @@ dl.info dd { margin: 0; }
       ['Cấy ghép Implant', 'Hệ thống Dentium ICT, nhiều dòng trụ từ Dio đến Straumann SLActive, bảo hành 15–25 năm.'],
       ['Bọc răng sứ', 'Từ sứ Titan, Venus đến Emax, Lisi, Lava, Nacera, Orodent.']]) }
   );
+  floors[5].zones.push(
+    { name: 'Thang máy', sub: 'Ra tầng 3 · tầng 4', pos: [-13.6, 8], body: () => lift(5) },
+    { name: 'Võ đài', sub: 'Luật đấu · bảng hạ gục', pos: [RX - RH - 1.9, 1.9], npc: referee, role: 'Trọng tài', say: 'Lên đài rồi bấm J để đấm, K để đá, giữ L để đỡ!', body: arena }
+  );
   // vòng sáng đánh dấu chỗ đứng mỗi khu
   const ringGeo = new THREE.RingGeometry(0.5, 0.66, 40);
-  [3, 4].forEach(n => floors[n].zones.forEach(z => {
+  [3, 4, 5].forEach(n => floors[n].zones.forEach(z => {
     z.floor = n;
     const r = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xd9536f, transparent: true, opacity: 0.55 }));
     r.rotation.x = -Math.PI / 2; r.position.set(z.pos[0], 0.012, z.pos[1]); floors[n].g.add(r); z.ring = r;
@@ -1238,20 +1355,42 @@ dl.info dd { margin: 0; }
   let zoom = 1, camYaw = -Math.PI / 2, camPitch = 0.6;
   function setFloor(n) {
     cur = floors[n];
-    [3, 4].forEach(k => floors[k].g.visible = k === n);
+    Object.values(floors).forEach(f => f.g.visible = f === cur);
     obstacles = cur.obstacles; zones = cur.zones; grid = null; path = []; target = null; marker.visible = false; near = null;
     player.group.position.set(-12.6, 0, 8); player.group.rotation.y = Math.PI / 2; camYaw = -Math.PI / 2;
     camera.position.set(-15.4, 3.4, 8);
-    $('floorBtn').querySelector('b').textContent = n === 3 ? 'Lên tầng 4' : 'Xuống tầng 3';
-    $('hudZone').textContent = `Tầng ${n} · Sảnh`;
+    $('floorBtn').querySelector('b').textContent = n === 3 ? 'Lên tầng 4' : n === 4 ? 'Xuống tầng 3' : 'Ra tầng 4';
+    $('hudZone').textContent = `${fl(n)} · Sảnh`;
     closePanel(); buildMenu();
   }
   function changeFloor(n, then) {
     if (cur && cur.n === n) { then && then(); return; }
-    const fade = $('fade'); fade.textContent = `Tầng ${n}`; fade.classList.add('on');
+    if (n === 5 && !staffOk) return askPass(then);
+    const fade = $('fade'); fade.textContent = fl(n); fade.classList.add('on');
     setTimeout(() => { setFloor(n); fade.classList.remove('on'); then && then(); }, reduce ? 0 : 380);
   }
-  $('floorBtn').onclick = () => changeFloor(cur.n === 3 ? 4 : 3);
+  $('floorBtn').onclick = () => changeFloor(cur.n === 3 ? 4 : cur.n === 4 ? 3 : 4);
+
+  // Phòng nhân viên: so mã SHA-256 của mật khẩu (trang tĩnh nên chỉ chặn khách thường, không phải bảo mật thật)
+  const STAFF_HASH = 'e0a285ced141cf34e05bd256395099c27d27dcdfca771b9a30e866b0b53cf968';
+  let staffOk = false, passThen = null;
+  try { staffOk = localStorage.getItem('tdc-staff') === STAFF_HASH; } catch (e) {}
+  const sha256 = async s => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map(b => b.toString(16).padStart(2, '0')).join('');
+  function askPass(then) {
+    passThen = then || null; closeGo();
+    openPanel({ name: 'Phòng nhân viên', sub: 'Cần mật khẩu', floor: cur.n, body: staffLock });
+    setTimeout(() => $('pw-in') && $('pw-in').focus(), 50);
+  }
+  function pwInit() {
+    $('pw').addEventListener('submit', async e => {
+      e.preventDefault();
+      const ok = $('pw-ok'), v = $('pw-in').value;
+      if (!crypto.subtle) { ok.textContent = 'Trình duyệt này không kiểm tra được mật khẩu.'; ok.hidden = false; return; }
+      if (await sha256(v) !== STAFF_HASH) { ok.textContent = 'Sai mật khẩu, thử lại nhé.'; ok.hidden = false; $('pw-in').select(); return; }
+      staffOk = true; try { localStorage.setItem('tdc-staff', STAFF_HASH); } catch (err) {}
+      closePanel(); buildMenu(); changeFloor(5, passThen);
+    });
+  }
 
   $('enter').onclick = () => {
     cfg.name = ($('nameIn').value.trim() || 'Khách').slice(0, 24);
@@ -1299,17 +1438,23 @@ dl.info dd { margin: 0; }
       const c = makeChibi({ shirt: v.s | 0, pants: 0x2f4a56, hair: v.h | 0, female: !!v.fe });
       c.group.position.set(v.x, 0, v.z); c.group.rotation.y = +v.r || 0; world.add(c.group);
       const el = document.createElement('div'); el.className = 'tag'; el.hidden = true; $('bubbles').appendChild(el);
-      o = { c, el, look, phase: 0, walk: 0 }; others.set(id, o);
+      o = { c, el, look, phase: 0, walk: 0, a: v.a | 0, ko: v.ko | 0, atkAt: -9 }; others.set(id, o);
     }
-    Object.assign(o, { f: v.f, tx: v.x, tz: v.z, tr: +v.r || 0, seen: performance.now() });
-    o.el.textContent = String(v.n || 'Khách').slice(0, 24);
+    o.name = String(v.n || 'Khách').slice(0, 24);
+    if ((v.a | 0) > o.a) onAttack(id, o, v);
+    if ((v.ko | 0) > o.ko) onKo(o, v.kb);
+    Object.assign(o, { f: v.f, tx: v.x, tz: v.z, tr: +v.r || 0, seen: performance.now(), a: v.a | 0, ko: v.ko | 0, hp: v.hp === undefined ? 100 : +v.hp, b: v.b | 0, w: v.w | 0 });
+    const fighting = o.f === 5 && inRing({ x: o.tx, z: o.tz });
+    o.el.textContent = fighting ? `${o.name} · ${o.hp <= 0 ? 'gục' : '♥ ' + o.hp}` : o.name;
+    o.el.classList.toggle('ko', fighting && o.hp <= 0);
   }
   function drop(id) { const o = others.get(id); if (!o) return; world.remove(o.c.group); o.el.remove(); others.delete(id); }
   // gửi vị trí bằng hẹn giờ riêng (không theo khung hình) để tab chạy nền vẫn báo mình còn online
   setInterval(() => {
     if (!net || mode !== 'world') return;
     const now = performance.now(), pos = player.group.position;
-    const st = { n: cfg.name, f: cur.n, x: Math.round(pos.x * 100) / 100, z: Math.round(pos.z * 100) / 100, r: Math.round(player.group.rotation.y * 100) / 100, s: cfg.shirt, h: cfg.hair, fe: cfg.female ? 1 : 0 };
+    const st = { n: cfg.name, f: cur.n, x: Math.round(pos.x * 100) / 100, z: Math.round(pos.z * 100) / 100, r: Math.round(player.group.rotation.y * 100) / 100, s: cfg.shirt, h: cfg.hair, fe: cfg.female ? 1 : 0,
+      hp: ft.hp, a: ft.a, ak: ft.ak, b: ft.b, ko: ft.ko, kb: ft.kb, w: ft.w };
     const key = JSON.stringify(st);
     if (key !== lastSent || now - sentAt > 15000) { lastSent = key; sentAt = now; st.t = firebase.database.ServerValue.TIMESTAMP; net.me.set(st).catch(e => console.warn('Firebase:', e.code || e)); }
   }, 120);
@@ -1326,13 +1471,77 @@ dl.info dd { margin: 0; }
       g.rotation.y += Math.atan2(Math.sin(o.tr - g.rotation.y), Math.cos(o.tr - g.rotation.y)) * Math.min(1, dt * 10);
       o.walk += ((d > 0.03 ? 1 : 0) - o.walk) * Math.min(1, dt * 8); o.phase += dt * 11 * o.walk;
       animateChibi(o.c, o.phase, o.walk, t);
-      tmp.set(g.position.x, 2.05, g.position.z).project(camera);
+      g.position.y = cur.n === 5 ? groundY(g.position.x, g.position.z) : 0;
+      poseFight(o.c, t - o.atkAt, o.ak, o.b, o.hp <= 0, dt);
+      tmp.set(g.position.x, 2.05 + g.position.y, g.position.z).project(camera);
       o.el.hidden = !!openZone || tmp.z > 1 || Math.hypot(pos.x - g.position.x, pos.z - g.position.z) > 14;
       o.el.style.left = (tmp.x * 0.5 + 0.5) * innerWidth + 'px'; o.el.style.top = (-tmp.y * 0.5 + 0.5) * innerHeight + 'px';
     });
     const on = $('hudOnline'), txt = others.size ? `${others.size + 1} người online · ${here + 1} ở tầng này` : 'Chỉ có bạn đang online';
     if (on.textContent !== txt) { on.textContent = txt; on.hidden = false; }
   }
+
+  /* ================= Võ đài: đấm, đá, đỡ ================= */
+  // Người bị đánh tự tính trúng đòn từ vị trí và hướng mặt người đánh gửi lên, rồi tự trừ máu của mình.
+  const MOVES = { 1: { dmg: 10, reach: 1.35, cd: 0.38, dur: 0.22 }, 2: { dmg: 18, reach: 1.7, cd: 0.8, dur: 0.38 } };
+  const ft = { hp: 100, a: 0, ak: 0, b: 0, ko: 0, kb: '', w: 0, atkAt: -9, cdUntil: 0, downUntil: 0 };
+  const inArena = () => mode === 'world' && cur && cur.n === 5 && inRing(player.group.position);
+  const secs = () => performance.now() / 1000;
+  function hpUI() { $('hpBar').style.width = ft.hp + '%'; $('hpTxt').textContent = ft.hp; }
+  let toastTimer = 0;
+  function toast(msg) { const el = $('toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 3200); }
+  function attack(k) {
+    const now = secs();
+    if (!inArena() || ft.hp <= 0 || now < ft.cdUntil) return;
+    Object.assign(ft, { ak: k, a: ft.a + 1, atkAt: now, cdUntil: now + MOVES[k].cd });
+  }
+  function setBlock(on) { ft.b = on && inArena() && ft.hp > 0 ? 1 : 0; $('mvBlock').setAttribute('aria-pressed', !!ft.b); }
+  function onAttack(id, o, v) {
+    o.atkAt = secs(); o.ak = v.ak | 0;
+    const m = MOVES[v.ak], p = player.group.position;
+    if (!m || v.f !== 5 || !inArena() || ft.hp <= 0 || !inRing({ x: v.x, z: v.z })) return;
+    const dx = p.x - v.x, dz = p.z - v.z, d = Math.hypot(dx, dz);
+    if (d > m.reach + 0.3 || d < 1e-3) return; // nới 0.3 cho độ trễ mạng
+    if ((Math.sin(v.r) * dx + Math.cos(v.r) * dz) / d < 0.35) return; // người đánh phải quay mặt về phía mình
+    const r = player.group.rotation.y, guard = ft.b && (Math.sin(r) * -dx + Math.cos(r) * -dz) / d > 0.2;
+    ft.hp = Math.max(0, ft.hp - Math.round(m.dmg * (guard ? 0.2 : 1)));
+    const kb = guard ? 0.12 : 0.4; p.x += dx / d * kb; p.z += dz / d * kb; collide(p);
+    const h = $('hurt'); h.classList.add('on'); setTimeout(() => h.classList.remove('on'), 70);
+    if (ft.hp <= 0) { Object.assign(ft, { ko: ft.ko + 1, kb: id, downUntil: secs() + 3, b: 0 }); toast(`${o.name} hạ gục bạn!`); }
+    hpUI();
+  }
+  function onKo(o, by) {
+    if (by === (net && net.uid)) { ft.w++; toast(`Bạn hạ gục ${o.name}! Tổng ${ft.w} lần.`); }
+    else if (cur && cur.n === 5) toast(`${(others.get(by) || {}).name || 'Ai đó'} hạ gục ${o.name}`);
+  }
+  // tư thế đánh: đấm duỗi tay phải, đá đưa chân phải, đỡ giơ hai tay, gục thì nằm ngửa
+  function poseFight(c, since, k, guard, down, dt) {
+    const m = MOVES[k];
+    if (m && since < m.dur) {
+      const s = Math.sin(since / m.dur * Math.PI);
+      if (k === 1) c.arms[1].rotation.x = -1.6 * s; else { c.legs[1].rotation.x = -1.4 * s; c.legs[0].rotation.x = 0.25 * s; }
+    }
+    if (guard) c.arms.forEach(a => a.rotation.x = -2.1);
+    c.group.rotation.x += ((down ? -1.45 : 0) - c.group.rotation.x) * Math.min(1, dt * 8);
+  }
+  let wasArena = false;
+  function fightTick() {
+    const on = inArena();
+    if (on !== wasArena) { wasArena = on; $('fight').hidden = !on; if (!on) setBlock(false); }
+    if (ft.hp <= 0 && secs() > ft.downUntil) { ft.hp = 100; hpUI(); }
+    if (!on && ft.hp > 0 && ft.hp < 100) { ft.hp = 100; hpUI(); }
+  }
+  addEventListener('keydown', e => {
+    if (mode !== 'world' || typing(e)) return;
+    if (e.code === 'KeyJ' || e.code === 'Space') { attack(1); if (inArena()) e.preventDefault(); }
+    if (e.code === 'KeyK') attack(2);
+    if (e.code === 'KeyL') setBlock(true);
+  });
+  addEventListener('keyup', e => { if (e.code === 'KeyL') setBlock(false); });
+  $('mvPunch').addEventListener('pointerdown', e => { e.preventDefault(); attack(1); });
+  $('mvKick').addEventListener('pointerdown', e => { e.preventDefault(); attack(2); });
+  $('mvBlock').addEventListener('pointerdown', e => { e.preventDefault(); $('mvBlock').setPointerCapture(e.pointerId); setBlock(true); });
+  ['pointerup', 'pointercancel'].forEach(t => $('mvBlock').addEventListener(t, () => setBlock(false)));
 
   /* ================= Điều khiển ================= */
   const keys = {};
@@ -1385,7 +1594,7 @@ dl.info dd { margin: 0; }
   // menu "Đi tới" theo tầng; chọn khu ở tầng khác sẽ đi thang máy trước
   const goMenu = $('goMenu'), goBtn = $('goBtn');
   function buildMenu() {
-    goMenu.innerHTML = [3, 4].map(n => `<h4>Tầng ${n}${cur && cur.n === n ? ' · bạn đang ở đây' : ''}</h4>` +
+    goMenu.innerHTML = [3, 4, 5].map(n => `<h4>${fl(n)}${cur && cur.n === n ? ' · bạn đang ở đây' : n === 5 && !staffOk ? ' · cần mật khẩu' : ''}</h4>` +
       floors[n].zones.map((z, i) => `<button type="button" data-f="${n}" data-i="${i}"><b>${z.name}</b><small>${z.sub}</small></button>`).join('')).join('');
     goMenu.querySelectorAll('button').forEach(b => b.onclick = () => {
       const n = +b.dataset.f, z = floors[n].zones[+b.dataset.i];
@@ -1398,7 +1607,7 @@ dl.info dd { margin: 0; }
   /* ================= Khung thông tin ================= */
   function openPanel(z) {
     openZone = z;
-    $('pEyebrow').textContent = `Tầng ${z.floor} · ${z.sub}`; $('pTitle').textContent = z.name; $('pBody').innerHTML = z.body();
+    $('pEyebrow').textContent = `${fl(z.floor)} · ${z.sub}`; $('pTitle').textContent = z.name; $('pBody').innerHTML = z.body();
     $('panel').hidden = false; $('prompt').hidden = true;
     const f = $('bk');
     if (f) f.addEventListener('submit', e => {
@@ -1412,6 +1621,7 @@ dl.info dd { margin: 0; }
     if ($('lib-q')) libInit();
     if ($('docs')) teamInit();
     if ($('cases')) caseInit();
+    if ($('pw')) pwInit();
     $('pBody').querySelectorAll('[data-floor]').forEach(b => b.onclick = () => changeFloor(+b.dataset.floor));
   }
   // Gửi phim/ảnh: điện thoại dùng bảng chia sẻ (chọn Zalo, ảnh đi kèm); máy tính sao chép lời nhắn rồi mở chat Zalo để khách kéo ảnh vào
@@ -1465,7 +1675,7 @@ dl.info dd { margin: 0; }
   $('close').onclick = closePanel;
   $('promptBtn').onclick = () => near && openPanel(near);
 
-  const bubbles = [3, 4].flatMap(n => floors[n].zones.filter(z => z.npc).map(z => {
+  const bubbles = [3, 4, 5].flatMap(n => floors[n].zones.filter(z => z.npc).map(z => {
     const el = document.createElement('div'); el.className = 'bubble'; el.hidden = true;
     el.innerHTML = `<b>${z.role}</b>${z.say}`; $('bubbles').appendChild(el);
     return { z, el };
@@ -1584,10 +1794,11 @@ dl.info dd { margin: 0; }
       if (d < (path.length ? 0.35 : 0.15)) { target = path.shift() || null; if (!target) marker.visible = false; }
       else { mx = dx / d; mz = dz / d; }
     }
+    if (ft.hp <= 0) { mx = mz = 0; target = null; path = []; }
     const len = Math.hypot(mx, mz);
     let moving = false;
     if (len > 0.08) {
-      const s = Math.min(1, len); mx /= len; mz /= len;
+      const s = Math.min(1, len) * (ft.b ? 0.45 : 1); mx /= len; mz /= len;
       const bx = pos.x, bz = pos.z;
       pos.x += mx * SPEED * s * dt; pos.z += mz * SPEED * s * dt; collide(pos);
       if (target && Math.hypot(pos.x - bx, pos.z - bz) < SPEED * s * dt * 0.2) { stuck += dt; if (stuck > 0.4) { target = null; path = []; marker.visible = false; stuck = 0; } } else stuck = 0;
@@ -1597,6 +1808,9 @@ dl.info dd { margin: 0; }
     }
     walk += ((moving ? 1 : 0) - walk) * Math.min(1, dt * 10);
     animateChibi(player, phase, walk, t);
+    pos.y = cur.n === 5 ? groundY(pos.x, pos.z) : 0;
+    poseFight(player, t - ft.atkAt, ft.ak, ft.b, ft.hp <= 0, dt);
+    fightTick();
     cur.npcs.forEach((c, i) => animateChibi(c, 0, 0, t + i));
     zones.forEach(z => {
       z.ring.material.opacity = 0.35 + 0.25 * Math.sin(t * 3);
@@ -1610,16 +1824,16 @@ dl.info dd { margin: 0; }
 
     // camera ngôi thứ ba thấp sau lưng nhân vật
     const cd = 5.4 * zoom, ch = (1.2 + 2.4 * camPitch) * zoom;
-    tmp.set(pos.x + Math.sin(camYaw) * cd, ch, pos.z + Math.cos(camYaw) * cd);
+    tmp.set(pos.x + Math.sin(camYaw) * cd, ch + pos.y, pos.z + Math.cos(camYaw) * cd);
     tmp.x = Math.max(-W + 0.4, Math.min(W - 0.4, tmp.x)); tmp.z = Math.max(-D + 0.4, Math.min(D - 0.4, tmp.z)); tmp.y = Math.min(CEIL - 0.4, tmp.y);
     camera.position.lerp(tmp, 1 - Math.exp(-dt * 6));
-    lookAt.set(pos.x - Math.sin(camYaw) * 2.2, 1.25, pos.z - Math.cos(camYaw) * 2.2);
+    lookAt.set(pos.x - Math.sin(camYaw) * 2.2, 1.25 + pos.y, pos.z - Math.cos(camYaw) * 2.2);
     camera.lookAt(lookAt);
     signs.forEach(s => { s.material.opacity = Math.max(0, Math.min(1, (s.position.distanceTo(camera.position) - 3.5) / 3)); });
 
     let best = null, bd = 2.2;
     zones.forEach(z => { const d = Math.hypot(pos.x - z.pos[0], pos.z - z.pos[1]); if (d < bd) { bd = d; best = z; } });
-    if (best !== near) { near = best; $('hudZone').textContent = `Tầng ${cur.n} · ${near ? near.name : 'Sảnh'}`; if (!near && openZone) closePanel(); }
+    if (best !== near) { near = best; $('hudZone').textContent = `${fl(cur.n)} · ${near ? near.name : 'Sảnh'}`; if (!near && openZone) closePanel(); }
     $('prompt').hidden = !near || !!openZone;
     if (near && !openZone) $('promptText').textContent = `${near.name} · ${near.sub}`;
 

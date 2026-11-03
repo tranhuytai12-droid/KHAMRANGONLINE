@@ -6,7 +6,7 @@
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['n', 'f', 'x', 'z']) || !newData.exists()",
         "n": { ".validate": "newData.isString() && newData.val().length <= 24" },
-        "f": { ".validate": "newData.val() === 3 || newData.val() === 4" },
+        "f": { ".validate": "newData.val() === 3 || newData.val() === 4 || newData.val() === 5" },
         "x": { ".validate": "newData.isNumber() && newData.val() >= -16 && newData.val() <= 16" },
         "z": { ".validate": "newData.isNumber() && newData.val() >= -12 && newData.val() <= 12" },
         "r": { ".validate": "newData.isNumber()" },
@@ -14,6 +14,13 @@
         "h": { ".validate": "newData.isNumber()" },
         "fe": { ".validate": "newData.isNumber()" },
         "t": { ".validate": "newData.isNumber()" },
+        "hp": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" },
+        "a": { ".validate": "newData.isNumber()" },
+        "ak": { ".validate": "newData.isNumber()" },
+        "b": { ".validate": "newData.isNumber()" },
+        "ko": { ".validate": "newData.isNumber()" },
+        "kb": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "w": { ".validate": "newData.isNumber()" },
         "$other": { ".validate": false }
       }
     }
