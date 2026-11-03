@@ -1,4 +1,4 @@
-﻿# Khám răng online – Nha khoa Thúy Đức 3D
+﻿# Khám răng online – Nha khoa Thúy Đức Premium
 
 Tham quan 3D hai tầng (tầng 3 và tầng 4) của Nha khoa Thúy Đức Premium, 257 Giải Phóng, Hà Nội.
 
