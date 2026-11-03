@@ -159,6 +159,8 @@ a.btn.gmap { background: #1a73e8; color: #fff !important; text-decoration: none;
 .drink b { font-size: 14px; line-height: 1.3; }
 .drink small { color: var(--muted); font-size: 12px; line-height: 1.35; }
 .drink em { font-style: normal; color: var(--gum); font-weight: 700; font-size: 12.5px; margin-top: 4px; }
+body.panel-open #club, body.panel-open #fight { display: none; }
+@media (max-width: 600px) { body #club, body #fight { bottom: calc(env(safe-area-inset-bottom, 0px) + 86px); } } /* chừa chỗ cho thanh "Xem" ở đáy */
 #club { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); display: flex; gap: 10px; pointer-events: auto; }
 #club button { width: 70px; height: 70px; border-radius: 50%; border: 0; background: #7b2ff7; color: #fff; font-weight: 800; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; box-shadow: 0 0 22px -4px #b14dff; }
 #club button[aria-pressed="true"] { background: #ff2d95; box-shadow: 0 0 26px -2px #ff2d95; }
@@ -2070,7 +2072,7 @@ dl.info dd { margin: 0; }
 
   /* ================= Khung thông tin ================= */
   function openPanel(z) {
-    openZone = z;
+    openZone = z; document.body.classList.add('panel-open'); // ẩn nút Nhảy/Nhạc/Đấm để khung không đè lên
     $('pEyebrow').textContent = `${fl(z.floor)} · ${z.sub}`; $('pTitle').textContent = z.name; $('pBody').innerHTML = z.body();
     $('panel').hidden = false; $('prompt').hidden = true;
     const f = $('bk');
@@ -2143,7 +2145,7 @@ dl.info dd { margin: 0; }
       $('up-steps').hidden = false; ok.hidden = true;
     });
   }
-  function closePanel() { $('panel').hidden = true; openZone = null; }
+  function closePanel() { $('panel').hidden = true; openZone = null; document.body.classList.remove('panel-open'); }
   $('close').onclick = closePanel;
   $('promptBtn').onclick = () => near && openPanel(near);
 
