@@ -1710,7 +1710,7 @@ dl.info dd { margin: 0; }
   // Nơi cần mật khẩu: so mã SHA-256 của mật khẩu (trang tĩnh nên chỉ chặn khách thường, không phải bảo mật thật); nhập đúng một lần thì máy đó nhớ
   const LOCKS = {
     [STAFF]: { hash: 'e0a285ced141cf34e05bd256395099c27d27dcdfca771b9a30e866b0b53cf968', key: 'tdc-staff', name: 'Phòng nhân viên', lead: 'Phòng nghỉ và võ đài của nhân viên Thúy Đức. Nhập mật khẩu để vào.' },
-    [CLUB]: { hash: 'e5bedce65d8349e689a0ce8578412b34b78669965aa073a3677f2ed8c6d4f6fe', key: 'tdc-club', name: 'Tầng 5 · Bar club', lead: 'Bar club tầng 5 chỉ dành cho khách có mật khẩu. Nhập mật khẩu để lên.' }
+    [CLUB]: { hash: 'e0a285ced141cf34e05bd256395099c27d27dcdfca771b9a30e866b0b53cf968', key: 'tdc-club', name: 'Tầng 5 · Bar club', lead: 'Bar club tầng 5 chỉ dành cho khách có mật khẩu. Nhập mật khẩu để lên.' }
   };
   const unlocked = {};
   for (const n in LOCKS) try { unlocked[n] = localStorage.getItem(LOCKS[n].key) === LOCKS[n].hash; } catch (e) {}
@@ -1753,7 +1753,7 @@ dl.info dd { margin: 0; }
       if (!crypto.subtle) { ok.textContent = 'Trình duyệt này không kiểm tra được mật khẩu.'; ok.hidden = false; return; }
       const L = LOCKS[passFloor];
       if (await sha256(v) !== L.hash) { ok.textContent = 'Sai mật khẩu, thử lại nhé.'; ok.hidden = false; $('pw-in').select(); return; }
-      unlocked[passFloor] = true; try { localStorage.setItem(L.key, L.hash); } catch (err) {}
+      for (const n in LOCKS) if (LOCKS[n].hash === L.hash) { unlocked[n] = true; try { localStorage.setItem(LOCKS[n].key, L.hash); } catch (err) {} } // cùng mật khẩu thì mở luôn cả hai
       closePanel(); buildMenu(); changeFloor(passFloor, passThen);
     });
   }
