@@ -59,6 +59,9 @@
         "dn": {
           ".validate": "newData.isNumber()"
         },
+        "dr": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 20"
+        },
         "$other": {
           ".validate": false
         }

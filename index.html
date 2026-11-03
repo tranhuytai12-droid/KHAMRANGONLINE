@@ -149,6 +149,16 @@ input, select, textarea {
 .stars button[aria-pressed="true"] { color: #F5B301; }
 .stars span { margin-left: 8px; color: var(--muted); font-size: 14px; font-weight: 600; }
 a.btn.gmap { background: #1a73e8; color: #fff !important; text-decoration: none; box-shadow: none; align-self: flex-start; }
+.tracks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.tracks .chip { display: flex; flex-direction: column; align-items: flex-start; text-align: left; border-radius: 14px; padding: 9px 12px; }
+.tracks .chip small { font-weight: 500; font-size: 12px; opacity: .75; }
+.drinks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.drink { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 10px 12px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--soft); }
+.drink:hover { border-color: var(--gum); }
+.drink .dot { width: 22px; height: 22px; border-radius: 50%; margin-bottom: 4px; box-shadow: inset 0 -5px 0 rgba(0,0,0,.18); }
+.drink b { font-size: 14px; line-height: 1.3; }
+.drink small { color: var(--muted); font-size: 12px; line-height: 1.35; }
+.drink em { font-style: normal; color: var(--gum); font-weight: 700; font-size: 12.5px; margin-top: 4px; }
 #club { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); display: flex; gap: 10px; pointer-events: auto; }
 #club button { width: 70px; height: 70px; border-radius: 50%; border: 0; background: #7b2ff7; color: #fff; font-weight: 800; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; box-shadow: 0 0 22px -4px #b14dff; }
 #club button[aria-pressed="true"] { background: #ff2d95; box-shadow: 0 0 26px -2px #ff2d95; }
@@ -412,6 +422,73 @@ dl.info dd { margin: 0; }
     if (c.snk && c.snk.idx !== idx) { c.group.remove(c.snk.group); c.snk = null; }
     if (idx && !c.snk) { c.snk = makeSnake(SNAKE_COLORS[(idx - 1) % 7]); c.snk.idx = idx; c.group.add(c.snk.group); }
     c.group.children.forEach(ch => ch.visible = c.snk && ch === c.snk.group ? !!idx : !idx);
+  }
+
+  /* ================= Đồ uống ở quầy bar (cầm trên tay phải) ================= */
+  // glass: 'pint' cốc bia, 'wine' ly vang có chân, 'cocktail' ly martini, 'rocks' ly whisky thấp, 'shot' ly shot, 'tall' ly cao
+  // extra: trang trí trong/trên ly; alc: có cồn
+  const DRINKS = [
+    { name: 'Bia tươi', sub: 'Bia vàng ướp lạnh, bọt mịn', alc: true, glass: 'pint', color: 0xf2b632, op: 0.85, extra: ['foam'], tip: 'Bia làm khô miệng, nhớ uống xen nước lọc.' },
+    { name: 'Vang đỏ', sub: 'Vang đỏ khô, ly có chân', alc: true, glass: 'wine', color: 0x7b1022, op: 0.92, extra: [], tip: 'Vang đỏ dễ làm ố răng, súc miệng nước lọc sau khi uống.' },
+    { name: 'Whisky đá', sub: 'Whisky, một viên đá lớn', alc: true, glass: 'rocks', color: 0xc77d2a, op: 0.85, extra: ['bigice'], tip: 'Đừng nhai đá, dễ mẻ răng đó!' },
+    { name: 'Tequila shot', sub: 'Một shot, kèm lát chanh', alc: true, glass: 'shot', color: 0xf5e6b8, op: 0.8, extra: ['lime'], tip: 'Chanh chua làm mềm men răng, đợi 30 phút rồi mới đánh răng.' },
+    { name: 'Mojito', sub: 'Rum trắng, bạc hà, chanh, soda', alc: true, glass: 'tall', color: 0xc8f0c0, op: 0.7, ice: true, extra: ['mint', 'lime', 'straw:0x2e7d32'], tip: 'Bạc hà thơm miệng nhưng vẫn có cồn, uống chậm thôi.' },
+    { name: 'Margarita', sub: 'Tequila, chanh, viền muối', alc: true, glass: 'cocktail', color: 0xd9ef9a, op: 0.8, extra: ['salt', 'lime'], tip: 'Đồ chua và có cồn, uống bằng ống hút sẽ đỡ hại men răng.' },
+    { name: 'Blue Lagoon', sub: 'Vodka, blue curaçao, soda chanh', alc: true, glass: 'tall', color: 0x29b6f6, op: 0.75, ice: true, extra: ['orange', 'straw:0xffffff'], tip: 'Màu xanh có thể bám lưỡi một lúc, không sao đâu.' },
+    { name: 'Martini', sub: 'Gin, vermouth, quả ô liu', alc: true, glass: 'cocktail', color: 0xeef3dc, op: 0.6, extra: ['olive'], tip: 'Cocktail mạnh, nhâm nhi từ từ.' },
+    { name: 'Mocktail dâu', sub: 'Không cồn: dâu, chanh, soda', alc: false, glass: 'tall', color: 0xf06292, op: 0.8, ice: true, extra: ['berry', 'straw:0xffffff'], tip: 'Không cồn nhưng có đường, nhớ súc miệng nha.' }
+  ];
+  function makeDrink(d) {
+    const g = new THREE.Group(), add = (geo, m, x, y, z, parent = g) => { const me = new THREE.Mesh(geo, m); me.position.set(x, y, z); parent.add(me); return me; };
+    const glass = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, roughness: 0.05, depthWrite: false, side: THREE.DoubleSide });
+    const liqM = new THREE.MeshStandardMaterial({ color: d.color, transparent: d.op < 1, opacity: d.op, roughness: 0.3 });
+    const stem = h => { add(new THREE.CylinderGeometry(0.006, 0.006, h, 8), glass, 0, h / 2, 0); add(new THREE.CylinderGeometry(0.035, 0.035, 0.006, 16), glass, 0, 0.003, 0); };
+    // mỗi kiểu ly: hình ly, chất lỏng (đáy ở gốc toạ độ để co theo chiều cao khi uống), độ cao miệng ly, chỗ tay cầm
+    let liquid, top, r, grip;
+    if (d.glass === 'wine') {
+      stem(0.1); r = 0.06; top = 0.19;
+      add(new THREE.SphereGeometry(r, 18, 10, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.65), glass, 0, 0.16, 0);
+      const lg = new THREE.SphereGeometry(r * 0.94, 18, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2); lg.translate(0, r * 0.94, 0);
+      liquid = add(lg, liqM, 0, 0.16 - r * 0.94, 0); grip = 0.06;
+    } else if (d.glass === 'cocktail') {
+      stem(0.1); r = 0.08; top = 0.19;
+      add(new THREE.CylinderGeometry(r, 0.005, 0.09, 20, 1, true), glass, 0, 0.145, 0);
+      const lg = new THREE.CylinderGeometry(r * 0.85, 0.005, 0.075, 20); lg.translate(0, 0.0375, 0);
+      liquid = add(lg, liqM, 0, 0.1, 0); grip = 0.06;
+    } else {
+      const S = { pint: [0.07, 0.06, 0.22], rocks: [0.07, 0.068, 0.1], shot: [0.035, 0.03, 0.07], tall: [0.065, 0.053, 0.24] }[d.glass];
+      r = S[0]; top = S[2];
+      add(new THREE.CylinderGeometry(r, S[1], top, 20, 1, true), glass, 0, top / 2, 0);
+      add(new THREE.CylinderGeometry(S[1], S[1], d.glass === 'shot' || d.glass === 'rocks' ? 0.015 : 0.006, 20), glass, 0, 0.004, 0);
+      const lg = new THREE.CylinderGeometry(r * 0.9, S[1] * 0.92, top * 0.78, 20); lg.translate(0, top * 0.39, 0);
+      liquid = add(lg, liqM, 0, 0.008, 0); grip = top * 0.35;
+      if (d.glass === 'pint') add(new THREE.TorusGeometry(0.045, 0.011, 8, 16, Math.PI), glass, r + 0.005, top * 0.5, 0).rotation.z = -Math.PI / 2;
+    }
+    if (d.ice) for (let i = 0; i < 3; i++) add(new THREE.BoxGeometry(0.03, 0.03, 0.03), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 }), Math.cos(i * 2.1) * r * 0.45, top * 0.72, Math.sin(i * 2.1) * r * 0.45).rotation.set(i, i * 2, 0);
+    d.extra.forEach(e => {
+      if (e.startsWith('straw')) add(new THREE.CylinderGeometry(0.007, 0.007, top + 0.12, 8), mat(+e.split(':')[1] || 0xffffff), r * 0.35, (top + 0.12) / 2 + 0.03, 0).rotation.z = -0.2;
+      if (e === 'mint') [0, 1, 2].forEach(i => add(new THREE.SphereGeometry(0.018, 8, 6), mat(0x43a047), (i - 1) * 0.02, top * 0.86, 0.01));
+      if (e === 'lime' || e === 'orange') add(new THREE.CylinderGeometry(0.03, 0.03, 0.008, 16), mat(e === 'lime' ? 0x9ccc65 : 0xffa726), r * 0.95, top * 0.97, 0).rotation.z = Math.PI / 2;
+      if (e === 'berry') for (let i = 0; i < 5; i++) add(new THREE.SphereGeometry(0.012, 8, 6), mat(0xc2185b), Math.cos(i * 1.3) * 0.03, top * 0.2 + i * 0.03, Math.sin(i * 1.3) * 0.03);
+      if (e === 'foam') { const f = add(new THREE.CylinderGeometry(r * 0.92, r * 0.9, 0.04, 20), mat(0xfffbef, { roughness: 0.9 }), 0, top * 0.78, 0, liquid); f.scale.y = 1; }
+      if (e === 'bigice') add(new THREE.BoxGeometry(0.05, 0.05, 0.05), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, roughness: 0.1 }), 0, 0.045, 0).rotation.set(0.3, 0.6, 0);
+      if (e === 'salt') { const s = add(new THREE.TorusGeometry(r, 0.006, 6, 32), mat(0xffffff, { roughness: 1 }), 0, top, 0); s.rotation.x = Math.PI / 2; }
+      if (e === 'olive') { add(new THREE.SphereGeometry(0.016, 10, 8), mat(0x7cb342), 0.01, 0.13, 0); add(new THREE.CylinderGeometry(0.003, 0.003, 0.11, 6), mat(0x8d6e63), 0.02, 0.16, 0).rotation.z = -0.4; }
+    });
+    return { group: g, liquid, grip };
+  }
+  // cầm/bỏ đồ uống (k = chỉ số + 1, 0 là không cầm) trên tay phải của nhân vật chibi
+  function holdDrink(c, k) {
+    if (c.drink) { c.arms[1].remove(c.drink.group); c.drink = null; }
+    c.drinkK = k;
+    if (!k || !DRINKS[k - 1]) return;
+    c.drink = makeDrink(DRINKS[k - 1]); c.drink.group.position.set(0, -0.37 - c.drink.grip, 0.07); c.arms[1].add(c.drink.group);
+  }
+  // tay cầm ly đưa ra trước, sip 0..1 là lúc nâng ly lên miệng
+  function drinkPose(c, sip) {
+    if (!c.drink) return;
+    const a = c.arms[1]; a.rotation.x = -0.7 - 1.3 * sip;
+    c.drink.group.rotation.set(-a.rotation.x - 0.5 * sip, 0, -a.rotation.z);
   }
 
   /* ================= Răng 16 (mô hình) ================= */
@@ -1135,6 +1212,19 @@ dl.info dd { margin: 0; }
       x.textAlign = 'center'; x.font = '800 74px "Bricolage Grotesque", sans-serif'; x.shadowColor = '#ff2d95'; x.shadowBlur = 24; x.fillStyle = '#ffd1e8'; x.fillText('THÚY ĐỨC BAR', 250, 82);
     }) })); ns.position.set(-4, 3.2, D - 0.16); ns.rotation.y = Math.PI; put(ns); }
   const bartender = npc({ shirt: 0x111111, pants: 0x111111, hair: 0x1f1a17, female: true }, -4, D - 1.4, Math.PI);
+  // 10 vũ công trên sàn LED: 7 người quây sân khấu, 3 người vòng ngoài; style 0 vẫy tay, 1 nhún nhảy, 2 xoay người
+  club.dancers = [
+    [0xff2d95, 0x1f1a17, 1], [0x00e5ff, 0x5a3a24, 0], [0xf3c64e, 0xd8b26a, 1], [0x7b2ff7, 0x1f1a17, 0], [0x39ff14, 0x9b6a3f, 0],
+    [0xffffff, 0x7a4b8f, 1], [0xff6d00, 0x1f1a17, 0], [0x29b6f6, 0xd8b26a, 1], [0xe53935, 0x5a3a24, 0], [0x1de9b6, 0x1f1a17, 1]
+  ].map(([shirt, hair, female], i) => {
+    const out = i >= 7, a = out ? 0.6 + (i - 7) * 2.1 : i / 7 * Math.PI * 2, rr = out ? 4.4 : 3.1;
+    const x = SX + Math.cos(a) * rr, z = Math.sin(a) * rr * 0.95;
+    const c = makeChibi({ shirt, pants: 0x1b1426, hair, female: !!female }); c.group.position.set(x, 0, z);
+    c.base = Math.atan2(SX - x, -z); c.group.rotation.y = c.base; put(c.group); block(x, z, 0.6, 0.6);
+    c.style = i % 3; c.off = i * 0.37;
+    if (i === 2 || i === 8) holdDrink(c, i === 2 ? 5 : 1); // vài người cầm ly
+    return c;
+  });
   // góc sofa tây nam
   box(7, 0.45, 1.0, 0x5a1640, -10, 0.225, -D + 1.1); box(7, 0.9, 0.3, 0x5a1640, -10, 0.45, -D + 0.55); block(-10, -D + 0.9, 7, 1.3);
   [-11.8, -8.2].forEach(x => { cyl(0.5, 0.5, 0.45, 0x2a1a2e, x, 0.225, -D + 2.8); block(x, -D + 2.8, 1.0, 1.0); });
@@ -1143,13 +1233,28 @@ dl.info dd { margin: 0; }
     const l = new THREE.PointLight(c, i, d); l.position.set(x, y, z); put(l); club.lights.push(l);
   });
   addSign(makeSign('Bar club', 'Tầng 5 · Thúy Đức', '#7B2FF7'), -10, 3.4, 4.5);
-  addSign(makeSign('Quầy bar', 'Đồ uống không cồn', '#FF2D95'), -4, 3.6, D - 3.2);
+  addSign(makeSign('Quầy bar', 'Bia · vang · cocktail', '#FF2D95'), -4, 3.6, D - 3.2);
   addSign(makeSign('DJ', 'Bật nhạc · nhảy', '#00B8D4'), W - 3.2, 3.6, 2.6);
   // vẽ lại sàn LED, màn hình DJ, laser, cột đèn theo nửa phách
-  const BPM = 124, HALF = 60 / BPM / 2;
+  // Các bài nhạc tự tổng hợp: nhịp (BPM) và mẫu 8 nửa phách (4 phách) cho từng nhạc cụ, 'x' đánh, 'o' hi-hat mở, '.' nghỉ;
+  // nốt bass / gốc hợp âm đổi theo ô nhịp (4 ô lặp lại)
+  const TRACKS = [
+    { name: 'House Thúy Đức', sub: '124 BPM · sôi động vừa', bpm: 124, kick: 'x.x.x.x.', hat: '.x.x.x.x',
+      bass: { pat: '.x.x.x.x', wave: 'sawtooth', notes: [55, 55, 65.4, 49] }, chord: { pat: 'x.......', wave: 'triangle', root: [220, 220, 261.6, 196], len: 0.4, vol: 0.07 } },
+    { name: 'EDM bùng nổ', sub: '128 BPM · dồn dập', bpm: 128, kick: 'x.x.x.x.', hat: 'xxxxxxxx', clap: '..x...x.',
+      bass: { pat: 'xxxxxxxx', wave: 'sawtooth', notes: [43.65, 43.65, 51.9, 58.3] }, lead: { pat: 'x.xx.xx.', wave: 'square', seq: [523.3, 659.3, 784, 659.3, 880, 784, 659.3, 587.3], vol: 0.045 } },
+    { name: 'Disco 80s', sub: '116 BPM · bass nhún', bpm: 116, kick: 'x.x.x.x.', hat: '.o.o.o.o', clap: '..x...x.',
+      bass: { pat: 'xxxxxxxx', wave: 'square', notes: [65.4, 65.4, 87.3, 98], oct: true, vol: 0.12 }, chord: { pat: '.x...x..', wave: 'square', root: [261.6, 261.6, 349.2, 392], len: 0.15, vol: 0.035 } },
+    { name: 'Chill lo-fi', sub: '84 BPM · thư giãn', bpm: 84, kick: 'x.....x.', snare: '....x...', hat: '..x...x.',
+      bass: { pat: 'x...x...', wave: 'sine', notes: [73.4, 61.7, 55, 65.4], len: 0.6, vol: 0.3 }, chord: { pat: 'x.......', wave: 'sine', root: [293.7, 246.9, 220, 261.6], len: 1.8, vol: 0.06, seventh: true } },
+    { name: 'Trống lễ hội', sub: '100 BPM · trống dồn', bpm: 100, kick: 'x..x..x.', tom: 'x.xx.x.x', hat: 'xxxxxxxx', clap: '....x...',
+      bass: { pat: 'x..x..x.', wave: 'triangle', notes: [49, 49, 55, 43.65], vol: 0.3 } }
+  ];
+  club.track = 0;
+  const half = () => 60 / TRACKS[club.track].bpm / 2;
   const LED_PAL = [['#7b2ff7', '#f2eeff'], ['#ffb300', '#ff6d00'], ['#00e5ff', '#1de9b6'], ['#ff2d95', '#7b2ff7']];
-  function clubTick(t) {
-    const step = Math.floor(t / HALF);
+  function clubTick(t, dt) {
+    const HALF = half(), step = Math.floor(t / HALF);
     if (step !== club.step) {
       club.step = step;
       const pal = LED_PAL[Math.floor(step / 16) % 4], wave = Math.floor(step / 32) % 2, x = club.led.image.getContext('2d');
@@ -1163,12 +1268,21 @@ dl.info dd { margin: 0; }
       g.addColorStop(0, '#1a0633'); g.addColorStop(1, '#05020c'); s.fillStyle = g; s.fillRect(0, 0, 600, 220);
       for (let i = 0; i < 30; i++) { const h = 30 + 120 * Math.abs(Math.sin(i * 1.7 + step * 0.6) * Math.cos(i * 0.5 - step * 0.3)); s.fillStyle = `hsl(${(i * 12 + step * 8) % 360},90%,60%)`; s.fillRect(i * 20 + 3, 215 - h, 14, h); }
       s.textAlign = 'center'; s.font = '800 64px "Bricolage Grotesque", sans-serif'; s.shadowColor = step % 4 < 2 ? '#ff2d95' : '#00e5ff'; s.shadowBlur = 30;
-      s.fillStyle = '#ffffff'; s.fillText('THÚY ĐỨC CLUB', 300, 92); s.shadowBlur = 0; club.screen.needsUpdate = true;
+      s.fillStyle = '#ffffff'; s.fillText('THÚY ĐỨC CLUB', 300, 92); s.shadowBlur = 0;
+      if (club.on) { s.font = '600 26px "Be Vietnam Pro", sans-serif'; s.fillStyle = '#ffd1e8'; s.fillText('♪ ' + TRACKS[club.track].name, 300, 132); }
+      club.screen.needsUpdate = true;
     }
     const beat = 1 - (t / HALF / 2) % 1; // giảm dần trong mỗi phách
     club.vu.forEach((m, i) => m.scale.y = 0.3 + 2.4 * Math.abs(Math.sin(i * 1.3 + t * 3)) * (0.5 + 0.5 * beat));
     club.lasers.forEach(({ g, k }) => { g.rotation.y = Math.sin(t * 0.9 + k * 1.6) * 0.55; g.rotation.z = 0.24 + 0.1 * Math.sin(t * 1.3 + k); }); // nghiêng xuống sàn
     club.ball.rotation.y = t * 0.8;
+    club.dancers.forEach(c => {
+      const tt = t + c.off; danceChibi(c, tt, true, dt);
+      const b = Math.abs(Math.sin(tt * Math.PI / half()));
+      if (c.style === 1) c.group.position.y = b * 0.12;
+      c.group.rotation.y = c.base + (c.style === 2 ? tt * 1.5 : Math.sin(tt * 1.2) * 0.5);
+      if (c.drink) drinkPose(c, 0);
+    });
     club.lights.forEach((l, i) => l.intensity = (i ? 0.8 : 1.2) + 0.6 * beat);
   }
 
@@ -1501,13 +1615,12 @@ dl.info dd { margin: 0; }
   } });
   floors[CLUB].zones.push(
     { name: 'Thang máy', sub: 'Xuống tầng 3 · tầng 4', pos: [-13.6, 8], body: () => lift(CLUB) },
-    { name: 'Quầy bar', sub: 'Đồ uống không cồn', pos: [-4, D - 3.9], npc: bartender, role: 'Bartender', say: 'Hôm nay uống gì nè? Toàn đồ không cồn, không hại men răng nha!', body: () => `<p class="lead">Thực đơn vui của bar 3D, toàn đồ uống không cồn và ít đường cho hàm răng khỏe.</p>` + items([
-      ['Mojito bạc hà', 'Bạc hà tươi, chanh, soda. Thơm miệng như vừa đánh răng xong.'],
-      ['Trà xanh chanh dây', 'Trà xanh nhiều chất chống oxy hóa, ít đường.'],
-      ['Nước dừa tươi', 'Giải khát tự nhiên, không làm ố răng như cà phê.'],
-      ['Sữa chua dâu', 'Canxi tốt cho men răng, uống xong nhớ súc miệng nước lọc.']]) +
-      `<p class="todo">Mẹo nha khoa: uống đồ có ga hay chua thì dùng ống hút và đợi 30 phút rồi mới đánh răng.</p>` },
-    { name: 'Bàn DJ', sub: 'Bật nhạc · nhảy', pos: [W - 4.4, 2.6], npc: dj, role: 'DJ', say: 'Bật nhạc lên rồi bấm Nhảy nào!', body: () => `<p class="lead">Bật nhạc rồi ra sàn LED nhảy cùng mọi người. Sàn và màn hình đổi màu theo nhịp ${BPM} BPM.</p>
+    { name: 'Quầy bar', sub: 'Gọi đồ uống', pos: [-4, D - 3.9], npc: bartender, role: 'Bartender', say: 'Hôm nay uống gì nè? Bia, vang hay cocktail?', body: () => `<p class="lead">Chọn đồ uống, bartender pha xong sẽ đưa tận tay. Mọi người trong club đều thấy bạn cầm ly, thỉnh thoảng nhân vật sẽ nâng ly lên uống.</p>
+      ${ft.dr ? `<div class="row"><span class="ok">Đang cầm: <b>${DRINKS[ft.dr - 1].name}</b></span><button class="chip" type="button" id="dr-off">Đặt ly xuống</button></div>` : ''}
+      <div class="drinks">${DRINKS.map((d, k) => `<button class="drink" type="button" data-drink="${k}"><span class="dot" style="background:${hex(d.color)}"></span><b>${d.name}</b><small>${d.sub}</small><em>${d.alc ? 'Có cồn · ' : 'Không cồn · '}Gọi món</em></button>`).join('')}</div>
+      <p class="todo">Đồ uống ảo trong bản 3D. Ngoài đời uống có trách nhiệm: đã uống rượu bia thì không lái xe. Mẹo nha khoa: rượu bia làm khô miệng, uống xen nước lọc và súc miệng trước khi ngủ.</p>` },
+    { name: 'Bàn DJ', sub: 'Bật nhạc · nhảy', pos: [W - 4.4, 2.6], npc: dj, role: 'DJ', say: 'Bật nhạc lên rồi bấm Nhảy nào!', body: () => `<p class="lead">Chọn bài rồi ra sàn LED nhảy cùng mọi người. Sàn và màn hình đổi màu theo nhịp bài đang phát. Phím N để đổi bài.</p>
+      <div class="tracks">${TRACKS.map((T, k) => `<button class="chip" type="button" data-track="${k}" aria-pressed="${club.on && club.track === k}"><b>${T.name}</b><small>${T.sub}</small></button>`).join('')}</div>
       <div class="lift"><button class="btn" type="button" id="dj-music">${club.on ? 'Tắt nhạc' : 'Bật nhạc'}<small>Nhạc chỉ phát trên máy bạn</small></button>
       <button class="btn soft" type="button" id="dj-dance">${ft.dn ? 'Dừng nhảy' : 'Nhảy'}<small>Phím B · mọi người đều thấy</small></button></div>` }
   );
@@ -1575,7 +1688,7 @@ dl.info dd { margin: 0; }
     const dark = n === CLUB; // club tắt bớt đèn trắng cho đèn màu nổi lên
     hemi.intensity = dark ? 0.16 : 0.62; sun.intensity = dark ? 0.06 : 0.6; world.background.set(dark ? 0x0a0612 : 0xeae5de);
     $('club').hidden = !dark;
-    if (!dark) { musicToggle(false); setDance(false); }
+    if (!dark) { musicToggle(false); setDance(false); if (ft.dr) giveDrink(0); }
     Object.values(floors).forEach(f => f.g.visible = f === cur);
     obstacles = cur.obstacles; zones = cur.zones; grid = null; path = []; target = null; marker.visible = false; near = null;
     player.group.position.set(-12.6, 0, 8); player.group.rotation.y = Math.PI / 2; camYaw = -Math.PI / 2;
@@ -1688,7 +1801,8 @@ dl.info dd { margin: 0; }
     o.name = String(v.n || 'Khách').slice(0, 24);
     if ((v.a | 0) > o.a) onAttack(id, o, v);
     if ((v.ko | 0) > o.ko) onKo(o, v.kb);
-    Object.assign(o, { f: v.f, tx: v.x, tz: v.z, tr: +v.r || 0, seen: performance.now(), a: v.a | 0, ko: v.ko | 0, hp: v.hp === undefined ? 100 : +v.hp, b: v.b | 0, w: v.w | 0, sn: v.sn | 0, dn: v.dn | 0 });
+    Object.assign(o, { f: v.f, tx: v.x, tz: v.z, tr: +v.r || 0, seen: performance.now(), a: v.a | 0, ko: v.ko | 0, hp: v.hp === undefined ? 100 : +v.hp, b: v.b | 0, w: v.w | 0, sn: v.sn | 0, dn: v.dn | 0, dr: v.dr | 0 });
+    if ((o.c.drinkK | 0) !== o.dr) holdDrink(o.c, o.dr);
     if ((o.snk | 0) !== o.sn) { o.snk = o.sn; setSnake(o.c, o.sn); }
     const fighting = o.f === STAFF && inRing({ x: o.tx, z: o.tz });
     o.el.textContent = fighting ? `${o.name} · ${o.hp <= 0 ? 'gục' : '♥ ' + o.hp}` : o.name;
@@ -1700,7 +1814,7 @@ dl.info dd { margin: 0; }
     if (!net || mode !== 'world') return;
     const now = performance.now(), pos = player.group.position;
     const st = { n: cfg.name, f: cur.n, x: Math.round(pos.x * 100) / 100, z: Math.round(pos.z * 100) / 100, r: Math.round(player.group.rotation.y * 100) / 100, s: cfg.shirt, h: cfg.hair, fe: cfg.female ? 1 : 0,
-      hp: ft.hp, a: ft.a, ak: ft.ak, b: ft.b, ko: ft.ko, kb: ft.kb, w: ft.w, sn: ft.sn, dn: ft.dn };
+      hp: ft.hp, a: ft.a, ak: ft.ak, b: ft.b, ko: ft.ko, kb: ft.kb, w: ft.w, sn: ft.sn, dn: ft.dn, dr: ft.dr };
     const key = JSON.stringify(st);
     if (key !== lastSent || now - sentAt > 15000) { lastSent = key; sentAt = now; st.t = firebase.database.ServerValue.TIMESTAMP; net.me.set(st).catch(e => console.warn('Firebase:', e.code || e)); }
   }, 120);
@@ -1720,6 +1834,7 @@ dl.info dd { margin: 0; }
       g.position.y = cur.ground ? cur.ground(g.position.x, g.position.z) : 0;
       if (o.sn) animateSnake(o.c.snk, o.phase, o.walk, t);
       danceChibi(o.c, t, o.dn && o.walk < 0.3, dt);
+      if (o.dr) { const ph = (t + (id.charCodeAt(0) % 5)) % 5; drinkPose(o.c, ph < 1.2 ? Math.sin(ph / 1.2 * Math.PI) : 0); }
       poseFight(o.c, t - o.atkAt, o.ak, o.b, o.hp <= 0, dt);
       tmp.set(g.position.x, (o.sn ? 0.95 : 2.05) + g.position.y, g.position.z).project(camera);
       o.el.hidden = !!openZone || tmp.z > 1 || Math.hypot(pos.x - g.position.x, pos.z - g.position.z) > 14;
@@ -1733,7 +1848,7 @@ dl.info dd { margin: 0; }
   // Người bị đánh tự tính trúng đòn từ vị trí và hướng mặt người đánh gửi lên, rồi tự trừ máu của mình.
   // 1 đấm, 2 đá, 3 rắn cắn
   const MOVES = { 1: { dmg: 10, reach: 1.35, cd: 0.38, dur: 0.22 }, 2: { dmg: 18, reach: 1.7, cd: 0.8, dur: 0.38 }, 3: { dmg: 15, reach: 1.5, cd: 0.55, dur: 0.3 } };
-  const ft = { hp: 100, a: 0, ak: 0, b: 0, ko: 0, kb: '', w: 0, sn: 0, dn: 0, atkAt: -9, cdUntil: 0, downUntil: 0 };
+  const ft = { hp: 100, a: 0, ak: 0, b: 0, ko: 0, kb: '', w: 0, sn: 0, dn: 0, dr: 0, level: 1, sipAt: 0, atkAt: -9, cdUntil: 0, downUntil: 0 };
   // hóa rắn: chọn màu chưa ai trong phòng nhân viên dùng, hết màu thì chọn ngẫu nhiên
   function becomeSnake(idx) {
     if (idx === undefined) {
@@ -1817,45 +1932,80 @@ dl.info dd { margin: 0; }
     if (on && !club.ctx) {
       const A = window.AudioContext || window.webkitAudioContext; if (!A) return;
       club.ctx = new A(); club.out = club.ctx.createGain(); club.out.gain.value = 0.45; club.out.connect(club.ctx.destination);
-      const nb = club.ctx.createBuffer(1, club.ctx.sampleRate * 0.1, club.ctx.sampleRate), d = nb.getChannelData(0);
+      const nb = club.ctx.createBuffer(1, club.ctx.sampleRate * 0.5, club.ctx.sampleRate), d = nb.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; club.noise = nb;
     }
     club.on = !!on && !!club.ctx; clearInterval(club.timer);
     if (club.ctx) { if (club.on) { club.ctx.resume(); club.next = club.ctx.currentTime + 0.05; club.n = 0; club.timer = setInterval(schedule, 40); } else club.ctx.suspend(); }
     $('musicBtn').setAttribute('aria-pressed', club.on);
   }
+  function playTrack(k) {
+    club.track = (k + TRACKS.length) % TRACKS.length; club.step = -1;
+    musicToggle(true); toast(`Đang phát: ${TRACKS[club.track].name}`);
+  }
   function schedule() {
     const a = club.ctx;
-    while (club.next < a.currentTime + 0.15) { beatAt(club.n++, club.next); club.next += HALF; }
+    while (club.next < a.currentTime + 0.15) { beatAt(club.n++, club.next); club.next += half(); }
   }
   function beatAt(i, t) {
-    const a = club.ctx, env = (g, v, len) => { g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + len); };
-    if (i % 2 === 0) { // trống mỗi phách
-      const o = a.createOscillator(), g = a.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
-      env(g, 1, 0.3); o.connect(g).connect(club.out); o.start(t); o.stop(t + 0.32);
-    } else { // hi-hat giữa phách
-      const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); s.buffer = club.noise; f.type = 'highpass'; f.frequency.value = 7000;
-      env(g, 0.3, 0.05); s.connect(f).connect(g).connect(club.out); s.start(t); s.stop(t + 0.06);
-      const b = a.createOscillator(), bf = a.createBiquadFilter(), bg = a.createGain(); b.type = 'sawtooth'; b.frequency.value = [55, 55, 65.4, 49][Math.floor(i / 16) % 4];
-      bf.type = 'lowpass'; bf.frequency.value = 600; env(bg, 0.22, 0.2); b.connect(bf).connect(bg).connect(club.out); b.start(t); b.stop(t + 0.22);
+    const a = club.ctx, T = TRACKS[club.track], s = i % 8, bar = Math.floor(i / 8) % 4, hit = p => p && p[s] !== '.';
+    const env = (g, v, len) => { g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + len); };
+    const tone = (f, wave, vol, len, lp, f2) => {
+      const o = a.createOscillator(), g = a.createGain(); o.type = wave; o.frequency.setValueAtTime(f, t);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + len * 0.4);
+      let n = o; if (lp) { const fl = a.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp; o.connect(fl); n = fl; }
+      env(g, vol, len); n.connect(g).connect(club.out); o.start(t); o.stop(t + len + 0.02);
+    };
+    const noise = (type, freq, vol, len) => {
+      const src = a.createBufferSource(), fl = a.createBiquadFilter(), g = a.createGain(); src.buffer = club.noise; fl.type = type; fl.frequency.value = freq;
+      env(g, vol, len); src.connect(fl).connect(g).connect(club.out); src.start(t); src.stop(t + len + 0.02);
+    };
+    if (hit(T.kick)) tone(150, 'sine', 1, 0.3, 0, 45);
+    if (hit(T.tom)) tone(220, 'sine', 0.45, 0.25, 0, 90);
+    if (hit(T.hat)) T.hat[s] === 'o' ? noise('highpass', 6000, 0.2, 0.18) : noise('highpass', 7000, 0.3, 0.05);
+    if (hit(T.clap)) noise('bandpass', 1500, 0.5, 0.12);
+    if (hit(T.snare)) { noise('bandpass', 1800, 0.35, 0.18); tone(180, 'triangle', 0.15, 0.1); }
+    const B = T.bass; if (B && hit(B.pat)) tone(B.notes[bar] * (B.oct && s % 2 ? 2 : 1), B.wave, B.vol || 0.22, B.len || 0.2, 600);
+    const C = T.chord; if (C && hit(C.pat)) [1, 1.26, 1.5].concat(C.seventh ? [1.78] : []).forEach(m => tone(C.root[bar] * m, C.wave, C.vol, C.len));
+    const L = T.lead; if (L && hit(L.pat)) tone(L.seq[(s + bar * 2) % L.seq.length], L.wave, L.vol, 0.12, 3000);
+  }
+  // Gọi món: bartender pha 1,2 giây rồi đưa ly; cứ 5 giây nhấp một ngụm, 6 ngụm là hết ly
+  let pourTimer = 0;
+  function giveDrink(k) {
+    clearTimeout(pourTimer); ft.dr = k; ft.level = 1; ft.sipAt = secs() + 1.5; holdDrink(player, k);
+  }
+  function orderDrink(k) {
+    const d = DRINKS[k]; clearTimeout(pourTimer);
+    toast(`Bartender đang pha ${d.name}…`);
+    pourTimer = setTimeout(() => { if (cur.n !== CLUB) return; giveDrink(k + 1); toast(`Mời bạn: ${d.name}! ${d.tip}`); }, 1200);
+  }
+  function sipTick(t) {
+    if (!ft.dr || !player.drink) return 0;
+    const since = t - ft.sipAt;
+    if (since >= 5) {
+      ft.sipAt = t; ft.level = Math.max(0, ft.level - 1 / 6);
+      if (player.drink.liquid) player.drink.liquid.scale.y = Math.max(0.04, ft.level);
+      if (ft.level <= 0.01) { const d = DRINKS[ft.dr - 1]; giveDrink(0); toast(`Bạn đã uống hết ${d.name}. Nhớ súc miệng nước lọc nhé!`); return 0; }
     }
-    if (i % 8 === 0) { // hợp âm ngắn mỗi 4 phách
-      [220, 277.2, 329.6].forEach(fq => { const o = a.createOscillator(), g = a.createGain(); o.type = 'triangle'; o.frequency.value = fq * ([1, 1, 1.19, 0.89][Math.floor(i / 16) % 4]); env(g, 0.07, 0.4); o.connect(g).connect(club.out); o.start(t); o.stop(t + 0.42); });
-    }
+    return since > 0 && since < 1.2 ? Math.sin(since / 1.2 * Math.PI) : 0;
   }
   function setDance(on) { ft.dn = on && cur && cur.n === CLUB ? 1 : 0; $('danceBtn').setAttribute('aria-pressed', !!ft.dn); }
   // giơ hai tay vẫy, nhún theo phách; k là mức trộn 0..1 để chuyển mượt
   function danceChibi(c, t, on, dt) {
     c.dk = (c.dk || 0) + ((on ? 1 : 0) - (c.dk || 0)) * Math.min(1, dt * 6);
     const k = c.dk; if (k < 0.002) return;
-    const b = Math.sin(t * Math.PI * 2 * BPM / 60);
+    const b = Math.sin(t * Math.PI / half()); // nhún theo phách bài đang phát
     c.arms.forEach((a, i) => { const s = i ? 1 : -1; a.rotation.z = s * (0.22 + 2.3 * k + Math.sin(t * 8 + i * Math.PI) * 0.35 * k); a.rotation.x = -0.3 * k; });
     c.legs[0].rotation.x = 0.25 * b * k; c.legs[1].rotation.x = -0.25 * b * k;
     c.body.position.y = 0.7 + Math.abs(b) * 0.06 * k; c.head.position.y = 1.36 + Math.abs(b) * 0.08 * k; c.head.rotation.z = Math.sin(t * 4) * 0.15 * k;
   }
   $('danceBtn').onclick = () => setDance(!ft.dn);
   $('musicBtn').onclick = () => musicToggle(!club.on);
-  addEventListener('keydown', e => { if (mode === 'world' && !typing(e) && e.code === 'KeyB') setDance(!ft.dn); });
+  addEventListener('keydown', e => {
+    if (mode !== 'world' || typing(e) || cur.n !== CLUB) return;
+    if (e.code === 'KeyB') setDance(!ft.dn);
+    if (e.code === 'KeyN') playTrack(club.on ? club.track + 1 : club.track);
+  });
 
   /* ================= Điều khiển ================= */
   const keys = {};
@@ -1937,9 +2087,12 @@ dl.info dd { margin: 0; }
     if ($('cases')) caseInit();
     if ($('pw')) pwInit();
     if ($('fb')) fbInit();
+    $('pBody').querySelectorAll('[data-drink]').forEach(b => b.onclick = () => { orderDrink(+b.dataset.drink); closePanel(); });
+    if ($('dr-off')) $('dr-off').onclick = () => { giveDrink(0); openPanel(z); };
     if ($('dj-music')) {
       $('dj-music').onclick = () => { musicToggle(!club.on); openPanel(z); };
       $('dj-dance').onclick = () => { setDance(!ft.dn); openPanel(z); };
+      $('pBody').querySelectorAll('[data-track]').forEach(b => b.onclick = () => { playTrack(+b.dataset.track); openPanel(z); });
     }
     $('pBody').querySelectorAll('[data-floor]').forEach(b => b.onclick = () => changeFloor(+b.dataset.floor));
   }
@@ -2130,7 +2283,8 @@ dl.info dd { margin: 0; }
     pos.y = cur.ground ? cur.ground(pos.x, pos.z) : 0;
     if (ft.sn) animateSnake(player.snk, phase, walk, t);
     danceChibi(player, t, ft.dn && !moving, dt);
-    if (cur.n === CLUB) clubTick(t);
+    drinkPose(player, sipTick(t));
+    if (cur.n === CLUB) clubTick(t, dt);
     poseFight(player, t - ft.atkAt, ft.ak, ft.b, ft.hp <= 0, dt);
     fightTick();
     cur.npcs.forEach((c, i) => animateChibi(c, 0, 0, t + i));
