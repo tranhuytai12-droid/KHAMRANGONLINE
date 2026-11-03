@@ -172,6 +172,20 @@ input, select, textarea {
 .lift .btn { flex-direction: column; gap: 2px; padding: 16px; }
 .lift .btn small { font-weight: 500; opacity: .85; }
 .todo { font-size: 13px; color: var(--muted); }
+.send { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 18px; background: var(--soft); border: 1.5px solid var(--line); }
+.send h3 { font-size: 18px; }
+.drop { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 12px; border: 2px dashed var(--teal); border-radius: 16px; background: var(--sheet); text-align: center; cursor: pointer; }
+.drop.over { background: var(--gum-soft); border-color: var(--gum); }
+.drop b { color: var(--teal); }
+.drop small { color: var(--muted); font-size: 12.5px; }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+.thumbs:empty { display: none; }
+.thumb { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; background: var(--sheet); border: 1px solid var(--line); display: grid; place-items: center; font-size: 11px; color: var(--muted); text-align: center; padding: 4px; word-break: break-all; }
+.thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.thumb button { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(14,42,51,.75); color: #fff; font-size: 13px; line-height: 1; padding: 0; }
+.zalo { background: #0068FF; box-shadow: 0 10px 24px -12px #0068FF; }
+.steps { margin: 0; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
 dl.info { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
 dl.info dt { color: var(--muted); }
 dl.info dd { margin: 0; }
@@ -787,6 +801,7 @@ dl.info dd { margin: 0; }
   const years = arr => arr.map(([y, t, d]) => `<div class="item"><span class="n y">${y}</span><div><b>${t}</b><p>${d}</p></div></div>`).join('');
   const table = (title, rows, note) => `<div class="tbl"><table><caption>${title}</caption><tbody>${rows.map(([a, b, c]) => `<tr><td>${a}</td><td class="num">${b}</td><td class="nt">${c || ''}</td></tr>`).join('')}</tbody></table></div>${note ? `<p class="todo">${note}</p>` : ''}`;
   const SITE = 'https://nhakhoathuyduc.com.vn/';
+  const ZALO = '0336093366', ZALO_URL = `https://zalo.me/${ZALO}`, UP_MAX = 10;
   const contact = () => `<dl class="info">
       <dt>Hotline</dt><dd><b>033 609 3366</b></dd><dt>Email</dt><dd>cskh@thuyduc.com.vn</dd>
       <dt>Giờ mở cửa</dt><dd>08:00 – 18:30, Thứ Hai – Chủ Nhật</dd>
@@ -802,6 +817,26 @@ dl.info dd { margin: 0; }
       <button class="btn full" type="submit">Đăng ký tư vấn miễn phí</button>
       <p class="ok full" id="bk-ok" hidden></p>
     </form>
+    <section class="send" aria-labelledby="up-h">
+      <h3 id="up-h">Gửi phim, ảnh cho bác sĩ xem</h3>
+      <p class="lead">Bạn đã có phim X-quang, phim CT hoặc ảnh chụp răng? Gửi qua Zalo của phòng khám để bác sĩ xem trước khi bạn đến.</p>
+      <label class="drop" id="up-drop"><input id="up-files" type="file" multiple accept="image/*,.pdf">
+        <b>Chọn ảnh hoặc kéo thả vào đây</b><small>Ảnh chụp phim, ảnh răng, file PDF · tối đa ${UP_MAX} file</small></label>
+      <div class="thumbs" id="up-thumbs"></div>
+      <form class="form" id="up" novalidate>
+        <label>Họ và tên<input id="up-name" autocomplete="name" placeholder="Nguyễn Văn A"></label>
+        <label>Số điện thoại<input id="up-phone" type="tel" autocomplete="tel" placeholder="09xx xxx xxx"></label>
+        <label class="full">Ghi chú cho bác sĩ<textarea id="up-note" rows="2" placeholder="Ví dụ: phim chụp tháng 9, đau răng hàm dưới bên phải"></textarea></label>
+        <button class="btn zalo full" type="submit">Gửi qua Zalo</button>
+        <p class="ok full" id="up-ok" hidden></p>
+        <ol class="steps full" id="up-steps" hidden>
+          <li>Lời nhắn đã được sao chép sẵn.</li>
+          <li>Zalo của phòng khám vừa mở ở tab mới, bấm <b>Nhắn tin</b>.</li>
+          <li>Dán lời nhắn (Ctrl+V), rồi kéo các ảnh vừa chọn vào khung chat và gửi.</li>
+        </ol>
+      </form>
+      <p class="todo">Ảnh chỉ nằm trên máy bạn cho tới khi bạn gửi trong Zalo. Zalo phòng khám: <a href="${ZALO_URL}" target="_blank" rel="noopener">${ZALO.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')}</a>.</p>
+    </section>
     <p class="todo">Form trong bản 3D này chưa nối với hệ thống của phòng khám. Để đặt lịch thật, gọi hotline hoặc vào <a href="${SITE}" target="_blank" rel="noopener">nhakhoathuyduc.com.vn</a>.</p>`;
   const lift = n => `<p class="lead">Bạn đang ở tầng ${n}. Chọn tầng muốn đến.</p>
     <div class="lift"><button class="btn${n === 3 ? ' soft' : ''}" type="button" data-floor="3" ${n === 3 ? 'disabled' : ''}>Tầng 3<small>Lễ tân · chờ · X-quang · điều trị</small></button>
@@ -809,7 +844,7 @@ dl.info dd { margin: 0; }
   const z3 = floors[3].zones, z4 = floors[4].zones;
   z3.push(
     { name: 'Thang máy', sub: 'Lên tầng 4', pos: [-13.6, 8], body: () => lift(3) },
-    { name: 'Lễ tân', sub: 'Đặt lịch · liên hệ', pos: [-7, 3.9], npc: rec3, role: 'Lễ tân', say: 'Chào bạn! Thúy Đức mở cửa 08:00 – 18:30 tất cả các ngày trong tuần.', body: contact },
+    { name: 'Lễ tân', sub: 'Đặt lịch · gửi phim · liên hệ', pos: [-7, 3.9], npc: rec3, role: 'Lễ tân', say: 'Chào bạn! Thúy Đức mở cửa 08:00 – 18:30 tất cả các ngày trong tuần.', body: contact },
     { name: 'Phòng chờ', sub: '20 năm Thúy Đức', pos: [4.9, 8.6], body: () => `<p class="lead">Chuyên sâu để tạo nên khác biệt. Hành trình chăm sóc nụ cười từ năm 2006 đến nay.</p>` + years([
       ['2006', 'Thành lập', 'TS. Phạm Văn Việt, nguyên quyền trưởng khoa Răng Hàm Mặt bệnh viện Hữu Nghị Việt Xô, thành lập Nha khoa Thúy Đức.'],
       ['2015', 'Chuyên gia chỉnh nha', 'BS Phạm Hồng Đức nhận chứng chỉ AAO (Hiệp hội Chỉnh nha Hoa Kỳ) và là thành viên WFO.'],
@@ -839,7 +874,7 @@ dl.info dd { margin: 0; }
   );
   z4.push(
     { name: 'Thang máy', sub: 'Xuống tầng 3', pos: [-13.6, 8], body: () => lift(4) },
-    { name: 'Lễ tân tầng 4', sub: 'Đặt lịch · liên hệ', pos: [-7.5, 5.3], npc: rec4, role: 'Lễ tân', say: 'Chào mừng bạn đến tầng Invisalign của Thúy Đức Premium!', body: contact },
+    { name: 'Lễ tân tầng 4', sub: 'Đặt lịch · gửi phim · liên hệ', pos: [-7.5, 5.3], npc: rec4, role: 'Lễ tân', say: 'Chào mừng bạn đến tầng Invisalign của Thúy Đức Premium!', body: contact },
     { name: 'Khay Invisalign', sub: 'Công nghệ iTero', pos: [-13.8, 2.6], body: () => `<p class="lead">Mỗi hộp trên tường là bộ khay niềng của một khách hàng đang điều trị.</p>` + items([
       ['iTero Lumina (2024)', 'Máy quét dấu răng thế hệ mới: đầu quét nhỏ hơn 50%, phổ quét gấp 3, tốc độ xử lý gấp 2.'],
       ['iTero 5D Plus', 'Lấy dấu răng kỹ thuật số trong khoảng 60 giây, công nghệ NIRI phát hiện sâu kẽ răng.'],
@@ -1026,7 +1061,55 @@ dl.info dd { margin: 0; }
         : `Cảm ơn ${n}. Bản 3D này chưa nối với hệ thống của phòng khám nên yêu cầu chưa được gửi; hãy gọi hotline để chốt lịch.`;
       ok.hidden = false;
     });
+    if ($('up')) sendFilm();
     $('pBody').querySelectorAll('[data-floor]').forEach(b => b.onclick = () => changeFloor(+b.dataset.floor));
+  }
+  // Gửi phim/ảnh: điện thoại dùng bảng chia sẻ (chọn Zalo, ảnh đi kèm); máy tính sao chép lời nhắn rồi mở chat Zalo để khách kéo ảnh vào
+  let upFiles = [];
+  function sendFilm() {
+    const thumbs = $('up-thumbs'), drop = $('up-drop'), ok = $('up-ok');
+    upFiles.forEach(f => f.url && URL.revokeObjectURL(f.url)); upFiles = [];
+    const render = () => {
+      thumbs.innerHTML = '';
+      upFiles.forEach((f, i) => {
+        const d = document.createElement('div'); d.className = 'thumb';
+        d.innerHTML = f.url ? `<img alt="">` : `<span></span>`;
+        if (f.url) d.firstChild.src = f.url; else d.firstChild.textContent = f.file.name;
+        const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', `Bỏ ${f.file.name}`);
+        x.onclick = () => { if (f.url) URL.revokeObjectURL(f.url); upFiles.splice(i, 1); render(); };
+        d.appendChild(x); thumbs.appendChild(d);
+      });
+    };
+    const add = list => {
+      for (const file of list) {
+        if (upFiles.length >= UP_MAX) break;
+        if (!/^image\/|pdf$/.test(file.type)) continue;
+        upFiles.push({ file, url: file.type.startsWith('image/') ? URL.createObjectURL(file) : null });
+      }
+      render(); ok.hidden = true;
+    };
+    $('up-files').onchange = e => { add(e.target.files); e.target.value = ''; };
+    drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+    drop.ondragleave = () => drop.classList.remove('over');
+    drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); add(e.dataTransfer.files); };
+    $('up').addEventListener('submit', async e => {
+      e.preventDefault();
+      const n = $('up-name').value.trim(), p = $('up-phone').value.trim(), note = $('up-note').value.trim();
+      const say = t => { ok.textContent = t; ok.hidden = false; };
+      $('up-steps').hidden = true;
+      if (!upFiles.length) return say('Vui lòng chọn ít nhất một ảnh hoặc phim.');
+      if (!n || !/^[0-9 +.]{9,15}$/.test(p)) return say('Vui lòng nhập họ tên và số điện thoại hợp lệ (9–15 chữ số).');
+      const text = `Chào Nha khoa Thúy Đức, tôi là ${n} (SĐT ${p}). Tôi gửi ${upFiles.length} phim/ảnh nhờ bác sĩ xem giúp.${note ? ' Ghi chú: ' + note : ''}`;
+      const files = upFiles.map(f => f.file);
+      if (navigator.canShare && navigator.canShare({ files })) {
+        try { await navigator.share({ files, text, title: 'Gửi phim cho Nha khoa Thúy Đức' }); say('Đã chuyển ảnh sang ứng dụng bạn chọn. Nếu chưa chọn Zalo, bấm gửi lại.'); }
+        catch (err) { if (err.name !== 'AbortError') say('Không mở được bảng chia sẻ. Hãy mở Zalo và gửi ảnh tới ' + ZALO + '.'); }
+        return;
+      }
+      try { await navigator.clipboard.writeText(text); } catch (err) { /* không sao chép được thì khách tự gõ */ }
+      window.open(ZALO_URL, '_blank', 'noopener');
+      $('up-steps').hidden = false; ok.hidden = true;
+    });
   }
   function closePanel() { $('panel').hidden = true; openZone = null; }
   $('close').onclick = closePanel;
