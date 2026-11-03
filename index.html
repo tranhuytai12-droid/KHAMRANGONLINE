@@ -193,6 +193,21 @@ a.art:hover { border-color: var(--teal); }
 a.art b { display: block; font-size: 14.5px; line-height: 1.35; }
 a.art small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 3px; }
 a.art em { font-style: normal; color: var(--teal); font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.doc { display: flex; flex-direction: column; text-align: left; padding: 0; border: 1.5px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--soft); }
+.doc[aria-expanded="true"] { border-color: var(--teal); }
+.doc .ph { position: relative; aspect-ratio: 4 / 3; background: var(--gum-soft); display: grid; place-items: center; }
+.doc .ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.doc .ph i { font: 800 30px var(--display); color: var(--gum); font-style: normal; }
+.doc .dn { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 2px; }
+.doc .dn b { font-size: 14px; line-height: 1.3; }
+.doc .dn small { color: var(--muted); font-size: 12px; line-height: 1.35; }
+.doc .dn em { font-style: normal; color: var(--teal); font-size: 11.5px; font-weight: 600; }
+.docd { grid-column: 1 / -1; background: var(--sheet); border: 1.5px solid var(--teal); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.docd header b { display: block; font: 700 17px var(--display); }
+.docd header small { color: var(--muted); }
+.docd blockquote { margin: 0; padding-left: 10px; border-left: 3px solid var(--gum); color: var(--muted); font-style: italic; }
+.docd ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
 .steps { margin: 0; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
 dl.info { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
 dl.info dt { color: var(--muted); }
@@ -959,6 +974,71 @@ dl.info dd { margin: 0; }
     cats.onclick = e => { const b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; q.value = ''; show(); } };
     q.oninput = show; show();
   }
+  // Đội ngũ bác sĩ: theo nhakhoathuyduc.com.vn/doi-ngu-bac-si, ảnh lấy từ website, bấm thẻ để xem chi tiết
+  const UP = 'https://nhakhoathuyduc.com.vn/wp-content/uploads/';
+  const DOCS = [
+    { n: 'BS Phạm Hồng Đức', role: 'Giám đốc chuyên môn', yrs: 15, spec: 'Chỉnh nha', tags: ['nieng'], img: '2024/02/bs-ducaao.jpg', slug: 'bac-si-pham-hong-duc',
+      q: 'Tôi không phải là một người quá xuất sắc nhưng là một người kiên trì.',
+      pts: ['Red Diamond Invisalign Provider 2024, thuộc nhóm bác sĩ Invisalign nổi bật Việt Nam và Đông Nam Á', 'Thành viên Hiệp hội Chỉnh nha Hoa Kỳ AAO, IAO và WFO', '5 ca điều trị được đăng trên Global Invisalign Gallery', 'Dịch giả sách chỉnh nha: 1001 bí kíp lâm sàng trong chỉnh nha, Cơ sinh học trong chỉnh nha…', 'Tiên phong đưa phương pháp niềng không nhổ răng F.A.C.E về Việt Nam'] },
+    { n: 'TS.BS Lương Minh Hằng', role: 'Tiến sĩ Răng Hàm Mặt', yrs: 18, spec: 'Nha khoa tổng quát, nha khoa trẻ em', tags: ['tre', 'tq'], img: '2026/05/tsbs-luong-minh-hang.jpg', slug: 'ts-bs-luong-minh-hang',
+      q: 'Thành viên ban chấp hành Chi hội Nha khoa Trẻ em Việt Nam (VAPD) từ năm 2025.',
+      pts: ['Tiến sĩ Răng Hàm Mặt, Đại học Y Hà Nội', 'Giảng viên bộ môn Nha khoa Trẻ em, Viện Đào tạo Răng Hàm Mặt, ĐH Y Hà Nội', 'Thành viên Hội Nha khoa Trẻ em thế giới IAPD từ 2024', 'Đào tạo nha khoa trẻ em tại Hà Lan, Singapore, Thái Lan, Đài Loan, Malaysia'] },
+    { n: 'TS.BS Nguyễn An Nghĩa', role: 'Tiến sĩ Nha khoa', yrs: 18, spec: 'Phẫu thuật trong miệng, Implant, nha chu, khớp thái dương hàm', tags: ['implant'], img: '2026/06/bac-si-nghia-profile.png', slug: 'bac-si-nguyen-an-nghia',
+      q: 'Hơn 18 năm kinh nghiệm phẫu thuật trong miệng và cấy ghép Implant.',
+      pts: ['Bác sĩ nội trú Răng Hàm Mặt 2011, Tiến sĩ Nha khoa 2024', 'Giảng viên bộ môn Cấy ghép nha khoa và bộ môn Bệnh lý răng miệng & phẫu thuật hàm mặt, ĐH Y Hà Nội', 'DIU liên đại học Pháp – Việt về Nha khoa thẩm mỹ', 'Đào tạo tại ĐH Okayama (Nhật Bản), ĐH Mahidol (Thái Lan), nghiên cứu Implant tại NCKU (Đài Loan)'] },
+    { n: 'BS Lê Thị Thanh Vân', role: 'Phó Giám đốc chuyên môn, phụ trách chỉnh nha', yrs: 10, spec: 'Chỉnh nha', tags: ['nieng'], img: '2023/11/z4911494583887_641486b1a29baa506bdbd0f445dd2cd9.jpg', slug: 'bac-si-le-thi-van',
+      q: 'Đã trực tiếp điều trị cho hàng ngàn khách hàng niềng răng mắc cài.',
+      pts: ['Chứng chỉ bác sĩ chỉnh nha do Sở Y tế Hà Nội cấp', 'Khóa chỉnh nha chuyên sâu Immersion in Bioprogressive – MEAW', 'Chương trình TAD Module 2: niềng răng tăng trưởng'] },
+    { n: 'BS Nguyễn Thanh Tuấn', role: 'Bác sĩ Răng Hàm Mặt', yrs: 10, spec: 'Cấy ghép Implant, bọc răng sứ, nhổ răng', tags: ['implant'], img: '2023/11/396714336_122114798216054282_6684914508194459626_n.jpg', slug: 'bac-si-nguyen-thanh-tuan',
+      q: 'Tôi muốn trở thành bác sĩ để có thể nối nghiệp của mẹ…',
+      pts: ['Chứng chỉ đào tạo liên tục Implant nha khoa', 'Veneer nâng cao 2018: từ thẩm mỹ đến chức năng', 'Nha chu chuyên sâu: viêm nha chu, cười hở nướu, tụt nướu, mô mềm quanh Implant'] },
+    { n: 'BS Trần Minh Hiệp', role: 'Bác sĩ Răng Hàm Mặt', yrs: 11, spec: 'Cấy ghép Implant, răng sứ', tags: ['implant'], img: '2023/11/bs-hiep1-1-e1701219876351.png', slug: 'bac-si-tran-minh-hiep',
+      q: 'Gần 11 năm kinh nghiệm trong lĩnh vực cấy ghép Implant và bọc sứ.',
+      pts: ['Buser Implant Seminar in Vietnam (Daniel Buser, ĐH Bern)', 'Bangkok International Symposium of Implant Dentistry 2017', 'Implant toàn hàm ID4 Solution, nâng xoang, ghép xương, Implant vùng thẩm mỹ', 'Mặt dán sứ, chỉnh hình răng mặt'] },
+    { n: 'BS Vũ Thị Thu Hà', role: 'Bác sĩ Răng Hàm Mặt', yrs: 7, spec: 'Nhổ răng, nhổ răng chỉnh nha, nội nha', tags: ['tq'], img: '2024/04/bac-si-ha-nha-khoa-thuy-duc.jpg', slug: 'bac-si-vu-thi-thu-ha',
+      q: 'Từ khách hàng trở thành bác sĩ của phòng khám.',
+      pts: ['Chứng chỉ đào tạo liên tục Cấy ghép Implant nha khoa', 'Micro-Implant (MI) trong chỉnh nha và MSE cho ca khó', 'Cắt lợi thẩm mỹ, cắt phanh môi – lưỡi, phục hình sứ, điều trị tủy'] },
+    { n: 'BS Nguyễn Thị Xuân Anh', role: 'Bác sĩ Răng Hàm Mặt', yrs: 7, spec: 'Chỉnh nha, bọc răng sứ, điều trị tổng quát', tags: ['nieng', 'tq'], img: '2024/04/bs-xuan-anh-1.png', slug: 'bac-si-nguyen-thi-xuan-anh',
+      q: 'Hạnh phúc khi được đồng hành cùng khách hàng kiếm tìm nụ cười khỏe đẹp.',
+      pts: ['Chứng chỉ chỉnh nha do Viện Răng Hàm Mặt cấp', 'Veneer Master course, hội thảo phục hình và khớp cắn'] },
+    { n: 'BS Nguyễn Phương Nga', role: 'Bác sĩ Răng Hàm Mặt', yrs: 8, spec: 'Nội nha – Phục hồi, Nha chu', tags: ['tq'], img: '2026/10/bsi-nga.png', slug: 'bac-si-nguyen-phuong-nga',
+      q: 'Học tập và nghiên cứu chuyên sâu về Nội nha – Phục hồi, Nha chu.',
+      pts: ['Chứng chỉ thực hành chuyên sâu Nội nha – Phục hồi và Nha chu'] },
+    { n: 'BS Nguyễn Thị Thanh Huyền', role: 'Bác sĩ Răng Hàm Mặt', yrs: 5, spec: 'Chỉnh nha, răng trẻ em, nội nha, phục hình', tags: ['nieng', 'tre'], img: '2026/07/bac-si-thanh-huyen.png', slug: 'bac-si-nguyen-thi-thanh-huyen',
+      q: 'Chỉnh nha, răng trẻ em, nội nha và phục hình.',
+      pts: ['MSE – toàn diện về Micro-Implant', 'TOGO – chỉnh nha dưới hướng dẫn của overlay tạm thời', 'BOS Biomechanics, cắn khớp ứng dụng lâm sàng'] },
+    { n: 'BS Hoàng Hải Yến', role: 'Bác sĩ Răng Hàm Mặt', yrs: 0, spec: 'Điều trị tổng quát', tags: ['tq'], img: '2026/10/bsi-yen.png', slug: 'bac-si-hoang-hai-yen',
+      q: 'Tốt nghiệp bác sĩ Răng Hàm Mặt, Đại học Y Hà Nội.',
+      pts: ['Chứng nhận Chỉnh hình răng mặt', 'Nội nha lâm sàng hiện đại', 'Phục hình xâm lấn tối thiểu hiện đại'] }
+  ];
+  const DOC_TAGS = [['all', 'Tất cả'], ['nieng', 'Chỉnh nha'], ['implant', 'Implant · răng sứ'], ['tre', 'Răng trẻ em'], ['tq', 'Tổng quát · nội nha']];
+  const team = () => `<p class="lead">11 bác sĩ chuyên khoa Răng Hàm Mặt, đều tốt nghiệp Đại học Y Hà Nội. Bấm vào bác sĩ để xem chi tiết.</p>
+    <div class="chips" id="doc-tags">${DOC_TAGS.map(([k, t], i) => `<button class="chip" type="button" data-tag="${k}" aria-pressed="${!i}">${t}</button>`).join('')}</div>
+    <div class="docs" id="docs">${DOCS.map((d, i) => `<button class="doc" type="button" data-i="${i}" aria-expanded="false">
+      <span class="ph"><i>${d.n.split(' ').pop()[0]}</i><img src="${UP}${d.img}" alt="" loading="lazy" onerror="this.remove()"></span>
+      <span class="dn"><b>${d.n}</b><small>${d.spec}</small>${d.yrs ? `<em>${d.yrs} năm kinh nghiệm</em>` : ''}</span></button>`).join('')}</div>
+    <div class="docd" id="docd" hidden></div>
+    <p class="todo">Hồ sơ đầy đủ: <a href="${SITE}doi-ngu-bac-si/" target="_blank" rel="noopener">nhakhoathuyduc.com.vn/doi-ngu-bac-si</a>.</p>`;
+  function teamInit() {
+    const grid = $('docs'), det = $('docd'), tags = $('doc-tags');
+    let open = -1;
+    const show = i => {
+      grid.querySelectorAll('.doc').forEach(b => b.setAttribute('aria-expanded', +b.dataset.i === i));
+      if (i < 0) { det.hidden = true; return; }
+      const d = DOCS[i];
+      det.innerHTML = `<header><b>${d.n}</b><small>${d.role}${d.yrs ? ' · ' + d.yrs + ' năm kinh nghiệm' : ''}</small></header>
+        <blockquote>“${d.q}”</blockquote><ul>${d.pts.map(p => `<li>${p}</li>`).join('')}</ul>
+        <a href="${SITE}${d.slug}/" target="_blank" rel="noopener">Xem hồ sơ đầy đủ</a>`;
+      det.hidden = false; grid.querySelector(`[data-i="${i}"]`).after(det);
+    };
+    grid.onclick = e => { const b = e.target.closest('.doc'); if (!b) return; open = open === +b.dataset.i ? -1 : +b.dataset.i; show(open); };
+    tags.onclick = e => {
+      const b = e.target.closest('[data-tag]'); if (!b) return;
+      tags.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c === b));
+      grid.querySelectorAll('.doc').forEach(c => c.hidden = b.dataset.tag !== 'all' && !DOCS[+c.dataset.i].tags.includes(b.dataset.tag));
+      open = -1; show(-1);
+    };
+  }
   const z3 = floors[3].zones, z4 = floors[4].zones;
   z3.push(
     { name: 'Thang máy', sub: 'Lên tầng 4', pos: [-13.6, 8], body: () => lift(3) },
@@ -1005,18 +1085,7 @@ dl.info dd { margin: 0; }
       ['Vậy 16 là gì?', 'Răng hàm lớn thứ nhất hàm trên bên phải, còn gọi là răng 6 tuổi. Mặt nhai nhiều rãnh nên rất dễ sâu.']]) },
     { name: 'Phòng chờ VIP', sub: 'Thúy Đức Premium', pos: [9.6, 6.8], body: () => `<p class="lead">“Nụ cười đều, đẹp rạng ngời sẽ truyền cảm hứng tích cực cho bạn.” Bốn tiêu chuẩn của Thúy Đức Premium:</p>` +
       `<div class="quad"><div><b>Vô trùng</b><span>Xử lý dụng cụ khép kín</span></div><div><b>Chuyên sâu</b><span>Bác sĩ giàu kinh nghiệm</span></div><div><b>Hiện đại</b><span>Bệnh án số hóa 100%</span></div><div><b>Tận tâm</b><span>Chăm sóc khách hàng văn minh</span></div></div>` },
-    { name: 'Đội ngũ bác sĩ', sub: '11 bác sĩ chuyên khoa', pos: [-9.5, -2.8], body: () => `<p class="lead">Bác sĩ chuyên khoa Răng Hàm Mặt, phần lớn tốt nghiệp Đại học Y Hà Nội.</p>` + items([
-      ['BS Phạm Hồng Đức', 'Invisalign Red Diamond Provider 2024, giảng viên Align Faculty, thành viên AAO, cao học Việt – Pháp ĐH Bordeaux.'],
-      ['TS.BS Lương Minh Hằng', 'Tiến sĩ Răng Hàm Mặt (2023), giảng viên bộ môn Nha khoa Trẻ em, ĐH Y Hà Nội.'],
-      ['TS.BS Nguyễn An Nghĩa', 'Tiến sĩ Nha khoa (2024), bác sĩ nội trú, giảng viên khoa Răng Hàm Mặt ĐH Y Hà Nội.'],
-      ['BS Nguyễn Phương Nga', 'Hơn 8 năm kinh nghiệm, chuyên sâu Nội nha – Phục hồi và Nha chu.'],
-      ['BS Nguyễn Thị Thanh Huyền', 'Chỉnh nha: các khóa MSE Micro-Implant, TOGO, BOS Biomechanics.'],
-      ['BS Hoàng Hải Yến', 'Chỉnh hình răng mặt, nội nha lâm sàng, phục hình xâm lấn tối thiểu.'],
-      ['BS Nguyễn Thanh Tuấn', 'Implant nha khoa, Veneer nâng cao, nha chu chuyên sâu.'],
-      ['BS Lê Thị Thanh Vân', 'Chỉnh hình răng mặt, khóa chỉnh nha Bioprogressive – MEAW.'],
-      ['BS Vũ Thị Thu Hà', 'Cấy ghép và phục hình Implant.'],
-      ['BS Nguyễn Thị Xuân Anh', 'Chỉnh nha, chỉnh hình răng mặt, cơ sinh học chỉnh nha Biomechanics.'],
-      ['BS Trần Minh Hiệp', 'Cấy ghép Implant (Buser Implant Seminar), chỉnh hình răng mặt, mặt dán sứ.']]) },
+    { name: 'Đội ngũ bác sĩ', sub: '11 bác sĩ chuyên khoa', pos: [-9.5, -2.8], body: team },
     { name: 'Phòng tư vấn', sub: 'Quy trình 4 bước', pos: [-0.45, -6.4], npc: consultant, role: 'Tư vấn viên', say: 'Mời bạn ngồi, mình giải thích phương án trên phim nhé.', body: () => items([
       ['Tiếp đón', 'Lập hồ sơ, hỏi tiền sử bệnh, thuốc đang dùng và điều bạn đang lo.'],
       ['Khám & chụp phim', 'Soi từng răng, đo túi nướu, chụp X-quang khi cần để thấy phần dưới nướu.'],
@@ -1183,6 +1252,7 @@ dl.info dd { margin: 0; }
     });
     if ($('up')) sendFilm();
     if ($('lib-q')) libInit();
+    if ($('docs')) teamInit();
     $('pBody').querySelectorAll('[data-floor]').forEach(b => b.onclick = () => changeFloor(+b.dataset.floor));
   }
   // Gửi phim/ảnh: điện thoại dùng bảng chia sẻ (chọn Zalo, ảnh đi kèm); máy tính sao chép lời nhắn rồi mở chat Zalo để khách kéo ảnh vào
