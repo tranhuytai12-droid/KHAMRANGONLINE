@@ -185,6 +185,14 @@ input, select, textarea {
 .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .thumb button { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(14,42,51,.75); color: #fff; font-size: 13px; line-height: 1; padding: 0; }
 .zalo { background: #0068FF; box-shadow: 0 10px 24px -12px #0068FF; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips .chip { font-size: 13px; padding: 6px 12px; }
+.arts { display: flex; flex-direction: column; gap: 8px; }
+a.art { display: block; padding: 11px 14px; background: var(--soft); border-radius: 14px; text-decoration: none; color: var(--ink) !important; border: 1.5px solid transparent; }
+a.art:hover { border-color: var(--teal); }
+a.art b { display: block; font-size: 14.5px; line-height: 1.35; }
+a.art small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+a.art em { font-style: normal; color: var(--teal); font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .steps { margin: 0; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
 dl.info { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
 dl.info dt { color: var(--muted); }
@@ -554,6 +562,24 @@ dl.info dd { margin: 0; }
   }
   function npc(opts, x, z, rot, zoneRole) { const c = makeChibi(opts); c.group.position.set(x, 0, z); c.group.rotation.y = rot; c.base = rot; put(c.group); F.npcs.push(c); return c; }
   const P = (x, z) => [(x + W) / (2 * W) * 1024, (z + D) / (2 * D) * 768];
+  // Thư viện kiến thức: tủ sách gỗ áp tường bắc, ghế đôn đọc sách phía trước
+  function bookcase(x, frame, seat) {
+    const z = D - 0.32, Wd = 3.4, H = 2.7, BOOKS = [0x2c6fb0, 0xe2553d, 0xf2a33a, 0x0f7c86, 0xffffff, 0x5c9e6e, 0x8f7fc4];
+    box(Wd, H, 0.08, frame, x, H / 2, D - 0.08);
+    [-Wd / 2, -Wd / 6, Wd / 6, Wd / 2].forEach(dx => box(0.06, H, 0.46, frame, x + dx, H / 2, z));
+    [0.04, 0.58, 1.12, 1.66, 2.2, H - 0.03].forEach(y => box(Wd, 0.05, 0.46, frame, x, y, z));
+    let s = 7;
+    [0.07, 0.61, 1.15, 1.69, 2.23].forEach(y => {
+      for (let bx = x - Wd / 2 + 0.08; bx < x + Wd / 2 - 0.12;) {
+        s = (s * 9301 + 49297) % 233280; const r = s / 233280, w = 0.05 + r * 0.05, h = 0.3 + r * 0.16;
+        if (Math.abs(bx - x - Wd / 6) < 0.05 || Math.abs(bx - x + Wd / 6) < 0.05) { bx += 0.08; continue; }
+        if (r < 0.06) { bx += 0.22; continue; }
+        box(w, h, 0.3, BOOKS[Math.floor(r * 70) % BOOKS.length], bx + w / 2, y + h / 2, z + 0.02); bx += w + 0.008;
+      }
+    });
+    block(x, z, Wd + 0.1, 0.5);
+    [[-0.8, D - 1.25], [0.8, D - 1.25]].forEach(([dx, sz]) => { cyl(0.26, 0.26, 0.42, seat, x + dx, 0.21, sz); block(x + dx, sz, 0.55, 0.55); });
+  }
   function speckle(fx, n = 9000) { for (let i = 0; i < n; i++) { fx.fillStyle = i % 2 ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)'; fx.fillRect(Math.random() * 1024, Math.random() * 768, 2, 2); } }
 
   /* ==================================================================
@@ -641,6 +667,8 @@ dl.info dd { margin: 0; }
   }) }));
   poster.position.set(-1.4, 1.3, 3.55); put(poster); block(-1.4, 3.4, 0.9, 0.7);
   addSign(makeSign('Bảng giá', 'Dịch vụ 2026'), -1.4, 2.6, 3.4);
+  bookcase(-4.5, woodM, terracotta);
+  addSign(makeSign('Thư viện kiến thức', 'Đọc trước khi khám'), -4.5, 3.4, D - 0.9);
 
   // --- Dãy phòng phía sau, ngăn bằng vách ---
   wallX(-4.5, -W, -9, [[-11.7, -10.2]], 'solid');      // X-quang
@@ -761,6 +789,8 @@ dl.info dd { margin: 0; }
   [[3.1, 1.9], [3.3, 2.8]].forEach(([x, z]) => { cyl(0.3, 0.3, 0.45, 0xb5532f, x, 0.225, z); block(x, z, 0.65, 0.65); });
   const guest4 = npc({ shirt: 0x2c3e66, pants: 0x2c3e66, hair: 0x1f1a17, female: true }, 12.4, 5.0, -2.4);
   addSign(makeSign('Phòng chờ VIP', 'Thúy Đức Premium'), 8.5, 3.3, 3.2);
+  bookcase(-5, mat(0x7a5236, { roughness: 0.6 }), velvet);
+  addSign(makeSign('Thư viện kiến thức', 'Niềng răng · Invisalign'), -5, 3.4, D - 0.9);
 
   // --- Hành lang đèn đỏ, bảng chỉ dẫn, dãy phòng ---
   [-0.35, -4.35].forEach(z => box(20.5, 0.05, 0.1, new THREE.MeshBasicMaterial({ color: 0xff4d5e }), 5.75, CEIL - 0.05, z));
@@ -841,9 +871,98 @@ dl.info dd { margin: 0; }
   const lift = n => `<p class="lead">Bạn đang ở tầng ${n}. Chọn tầng muốn đến.</p>
     <div class="lift"><button class="btn${n === 3 ? ' soft' : ''}" type="button" data-floor="3" ${n === 3 ? 'disabled' : ''}>Tầng 3<small>Lễ tân · chờ · X-quang · điều trị</small></button>
     <button class="btn${n === 4 ? ' soft' : ''}" type="button" data-floor="4" ${n === 4 ? 'disabled' : ''}>Tầng 4<small>Invisalign · VIP · tư vấn</small></button></div>`;
+  // Thư viện kiến thức: bài mới nhất mỗi chuyên mục trên nhakhoathuyduc.com.vn/kien-thuc-nha-khoa, bấm để đọc bài gốc
+  const LIB = [
+    ['nieng-rang', 'Niềng răng', 15, [
+      ['Kỹ thuật nâng khớp cắn trong niềng răng', 'nang-khop-can-trong-nieng-rang-24062', 'Vì sao bác sĩ nói trường hợp của bạn cần nâng khớp cắn, và kỹ thuật này làm gì.'],
+      ['Khí cụ nong hàm – đặc điểm, trường hợp sử dụng', 'khi-cu-nong-ham-24008', 'Nong hàm là kỹ thuật nền tảng trong chỉnh nha hiện đại.'],
+      ['Nên niềng răng mắc cài sứ hay mắc cài kim loại?', 'nieng-rang-mac-cai-su-hay-mac-cai-kim-loai-2632', 'So sánh hai loại mắc cài được hỏi nhiều nhất.'],
+      ['Trám răng thưa hay niềng răng tốt hơn?', 'tram-rang-thua-hay-nieng-rang-tot-hon-23959', 'Khi nào trám là đủ, khi nào nên niềng.'],
+      ['Trường hợp nào cần dùng thun chuỗi khi niềng răng?', 'thun-chuoi-23461', 'Thun chuỗi giúp đóng các khoảng hở nhỏ.'],
+      ['Niềng răng thưa là gì? Tìm hiểu mọi điều về niềng răng thưa', 'nieng-rang-thua-23611', 'Cơ chế, thời gian điều trị và phương pháp phù hợp.'],
+      ['Có nên niềng khi niềng răng cho trẻ 6 tuổi?', 'co-nen-nieng-khi-nieng-rang-cho-tre-6-tuoi-23566', 'Giai đoạn thay răng sữa và chỉnh nha sớm.'],
+      ['Các loại dây thun cần có khi niềng răng', 'cac-loai-day-thun-nieng-rang-23425', 'Vai trò của từng loại thun trong hệ thống chỉnh nha.'],
+      ['Nong hàm Invisalign IPE là gì? Có hiệu quả không?', 'nong-ham-invisalign-ipe-19833', 'Giải pháp nong hàm đi cùng Invisalign cho trẻ.']]],
+    ['trong-rang', 'Trồng răng', 7, [
+      ['Mất răng lâu năm ảnh hưởng đến khuôn mặt như thế nào?', 'mat-rang-lau-nam-anh-huong-the-nao-25293', 'Mất răng tác động âm thầm tới cấu trúc khuôn mặt theo thời gian.'],
+      ['Trụ Implant Neodent – Mọi điều bạn cần biết', 'tru-implant-neodent-25764', 'Dòng trụ nằm giữa nhóm cao cấp và phổ thông.'],
+      ['Trụ Implant SIC Thụy Sĩ – ưu, nhược điểm', 'tru-implant-sic-25590', 'Một lựa chọn Implant Thụy Sĩ bên cạnh Straumann.'],
+      ['Trụ implant Biotem – đặc điểm, ưu nhược điểm', 'implant-biotem-26129', 'Thương hiệu trụ mới bên cạnh Dentium, Osstem.'],
+      ['Healing trong implant là gì?', 'healing-trong-implant-la-gi-25597', 'Bộ phận nhỏ gắn trên trụ sau khi cấy dùng để làm gì.'],
+      ['Bảng chi phí trồng răng giả tại Nha khoa Thúy Đức', 'chi-phi-trong-rang-gia-2877', 'Chi phí từng phương pháp trồng răng.'],
+      ['Vệ sinh răng giả tháo lắp – thế nào là đúng?', 've-sinh-rang-gia-thao-lap-20509', 'Giữ hàm giả sạch và bền lâu.']]],
+    ['boc-rang-su', 'Bọc răng sứ', 6, [
+      ['Bị sâu răng nên bọc răng sứ hay hàn trám răng?', 'bi-sau-rang-nen-boc-rang-su-hay-han-tram-rang-26265', 'Chọn cách nào khi phát hiện răng sâu.'],
+      ['Bọc răng sứ nguyên hàm có nên không?', 'boc-rang-su-nguyen-ham-7293', 'Quyết định lớn, không thể đảo ngược, cần cân nhắc kỹ.'],
+      ['Dáng răng oval là gì? Tại sao được ưa chuộng?', 'dang-rang-oval-20157', 'Chọn dáng răng cho nụ cười tự nhiên.'],
+      ['Cùi răng là gì? Mọi điều về cùi răng giả', 'cui-rang-la-gi-16599', 'Khi nào cần cùi giả để nâng đỡ mão sứ.'],
+      ['Muốn bọc răng sứ Venus, bạn cần biết điều này!', 'rang-su-venus-16457', 'Răng toàn sứ giá tầm trung, màu tự nhiên.'],
+      ['Răng sứ có bị mòn không?', 'rang-su-co-bi-mon-khong-13821', 'Giải đáp chi tiết về độ bền răng sứ.'],
+      ['Thang đo các tông màu của răng chuẩn nhất', 'tong-mau-cua-rang-15616', '“Trắng như B1” nghĩa là gì.']]],
+    ['nho-rang', 'Nhổ răng', 6, [
+      ['Chụp X-quang răng khôn có cần thiết không?', 'chup-x-quang-rang-khon-4724', 'Xác định hướng mọc và vị trí dây thần kinh trước khi nhổ.'],
+      ['Nhổ răng số 7 có nguy hiểm không?', 'nho-rang-so-7-nguy-hiem-khong-5406', 'Vai trò của răng hàm lớn và khi nào phải nhổ.'],
+      ['Các trường hợp tuyệt đối không được nhổ răng', 'cac-truong-hop-tuyet-doi-khong-duoc-nho-rang-25605', 'Tình trạng sức khỏe cần xử lý trước khi nhổ.'],
+      ['Nhổ răng xong có cần uống kháng sinh không?', 'nho-rang-xong-co-can-uong-thuoc-khang-sinh-khong-25607', 'Khi nào cần và không cần kháng sinh.'],
+      ['Biến chứng nhổ răng khôn hàm dưới và yếu tố nguy cơ', 'bien-chung-nho-rang-khon-ham-duoi-23406', 'Rủi ro thường gặp và cách phòng tránh.'],
+      ['Thuốc lá làm chậm lành thương sau nhổ răng, cấy implant', 'thuoc-la-lam-cham-lanh-thuong-sau-nho-rang-va-cay-ghep-implant-24389', 'Ảnh hưởng của hút thuốc tới vết thương.'],
+      ['Nhổ răng sâu bao nhiêu tiền? Khi nào nên nhổ?', 'nho-rang-sau-bao-nhieu-tien-5340', 'Khi răng sâu không còn phục hồi được.']]],
+    ['tay-trang-rang', 'Tẩy trắng răng', 4, [
+      ['3 cách làm trắng răng bị ố vàng lâu năm', 'cach-lam-trang-rang-bi-o-vang-lau-nam-23411', 'Cân nhắc hiệu quả, an toàn và độ bền.'],
+      ['Dầu dừa có làm trắng răng không?', 'dau-dua-co-lam-trang-rang-khong-17036', 'Sự thật về mẹo làm trắng tự nhiên.'],
+      ['Răng bị đen ở mặt trong vì sao?', 'rang-bi-den-o-mat-trong-14340', 'Nguyên nhân và cách xử lý.'],
+      ['Tẩy trắng răng sau khi niềng nên hay không?', 'tay-trang-rang-sau-khi-nieng-12567', 'Thời điểm phù hợp để tẩy trắng.'],
+      ['Tẩy trắng răng bị ê buốt phải làm sao?', 'tay-trang-rang-bi-e-buot-phai-lam-sao-10491', 'Giảm ê buốt sau tẩy trắng.'],
+      ['Răng xỉn màu có cải thiện được không?', 'rang-xin-mau-11250', 'Các hướng cải thiện răng xỉn.']]],
+    ['cham-soc-rang-tre-em', 'Răng trẻ em', 11, [
+      ['Trẻ mấy tuổi thay răng sữa? Dấu hiệu nhận biết', 'tre-may-tuoi-thay-rang-sua-23577', 'Mốc thay răng và điều cha mẹ cần để ý.'],
+      ['Trẻ bị sâu răng có nên trám không?', 'tre-bi-sau-rang-co-nen-tram-khong-23568', 'Xử lý sâu răng sữa đúng cách.'],
+      ['Trẻ bị viêm tủy răng – điều trị thế nào?', 'tre-bi-viem-tuy-rang-23579', 'Viêm tủy ở răng sữa và răng vĩnh viễn.'],
+      ['Có nên lấy tủy răng chữa sâu răng cho trẻ?', 'co-nen-lay-tuy-rang-chua-sau-rang-cho-tre-em-khong-20177', 'Khi nào cần điều trị tủy cho bé.'],
+      ['Tật đẩy lưỡi ở trẻ gây sai lệch răng', 'tat-day-luoi-o-tre-23573', 'Thói quen nhỏ ảnh hưởng lớn tới răng hàm mặt.'],
+      ['Thiếu răng bẩm sinh – giải pháp tối ưu?', 'thieu-rang-bam-sinh-25601', 'Khi răng vĩnh viễn mãi không mọc.'],
+      ['10 món ăn dặm cho bé mọc răng', 'mon-an-dam-cho-be-moc-rang-23575', 'Giúp bé ăn ngon trong giai đoạn mọc răng.'],
+      ['Niềng răng cho trẻ em có đau không?', 'nieng-rang-cho-tre-em-co-dau-khong-19322', 'Giải đáp cho phụ huynh.'],
+      ['Các phương pháp niềng răng trẻ em mới nhất', 'cac-phuong-phap-nieng-rang-tre-em-19314', 'So sánh các lựa chọn chỉnh nha cho trẻ.']]],
+    ['nha-khoa-tong-quat', 'Tổng quát', 27, [
+      ['Nhận diện đặc điểm đau răng do xoang', 'dau-rang-do-xoang-26566', 'Dễ nhầm với bệnh răng miệng thông thường.'],
+      ['Vì sao áp xe nha chu lại tái phát nhiều lần?', 'ap-xe-nha-chu-lai-tai-phat-26568', 'Ổ nhiễm trùng quanh răng và cách dứt điểm.'],
+      ['Rối loạn vị giác kim loại – nguyên nhân thường gặp', 'roi-loan-vi-giac-kim-loai-la-gi-26561', 'Miệng có vị như ngậm đồng xu.'],
+      ['Nguyên nhân gây mỏi cơ nhai và cách cải thiện', 'moi-co-nhai-26563', 'Căng mỏi vùng hàm sau khi ăn nhai hoặc ngủ dậy.'],
+      ['U men răng là gì? Có phải ung thư không?', 'u-men-rang-la-gi-6783', 'Bệnh lý hàm mặt tiến triển âm thầm.'],
+      ['Thường xuyên nhai đá lạnh có hỏng men răng?', 'thuong-xuyen-nhai-da-lanh-co-lam-hong-men-rang-khong-9839', 'Thói quen phổ biến ngày nóng.'],
+      ['Nước ngọt có ga ảnh hưởng men răng ra sao?', 'nuoc-ngot-co-ga-anh-huong-den-men-rang-ra-sao-1206', 'Axit và đường tác động lên men răng.']]]
+  ];
+  const fold = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').toLowerCase();
+  const library = first => () => `<p class="lead">Bài viết của bác sĩ Thúy Đức, chia theo chuyên mục. Bấm vào bài để đọc bản đầy đủ trên nhakhoathuyduc.com.vn.</p>
+    <input id="lib-q" type="search" placeholder="Tìm bài viết, ví dụ: răng khôn, Invisalign…" aria-label="Tìm bài viết">
+    <div class="chips" id="lib-cats" data-first="${first}">${LIB.map(([k, name]) => `<button class="chip" type="button" data-cat="${k}" aria-pressed="false">${name}</button>`).join('')}</div>
+    <div class="arts" id="lib-list"></div>
+    <p class="todo" id="lib-more"></p>`;
+  function libInit() {
+    const q = $('lib-q'), list = $('lib-list'), more = $('lib-more'), cats = $('lib-cats');
+    let cat = cats.dataset.first;
+    const card = (k, name, [t, slug, d]) => `<a class="art" href="${SITE}${slug}/" target="_blank" rel="noopener"><em>${name}</em><b>${t}</b><small>${d}</small></a>`;
+    const show = () => {
+      const s = fold(q.value.trim());
+      cats.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', !s && b.dataset.cat === cat));
+      if (s) {
+        const hits = LIB.flatMap(([k, name, , arts]) => arts.filter(a => fold(a[0] + ' ' + a[2]).includes(s)).map(a => card(k, name, a)));
+        list.innerHTML = hits.join('') || '<p class="lead">Chưa có bài phù hợp trong thư viện 3D.</p>';
+        more.innerHTML = `Thư viện có hơn 800 bài. <a href="${SITE}?s=${encodeURIComponent(q.value.trim())}" target="_blank" rel="noopener">Tìm “${q.value.trim().replace(/[<>&"]/g, '')}” trên website</a>.`;
+      } else {
+        const [k, name, pages, arts] = LIB.find(c => c[0] === cat);
+        list.innerHTML = arts.map(a => card(k, name, a)).join('');
+        more.innerHTML = `Chuyên mục ${name} có khoảng ${pages} trang bài viết. <a href="${SITE}kien-thuc-nha-khoa/${k}/" target="_blank" rel="noopener">Xem tất cả</a>.`;
+      }
+    };
+    cats.onclick = e => { const b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; q.value = ''; show(); } };
+    q.oninput = show; show();
+  }
   const z3 = floors[3].zones, z4 = floors[4].zones;
   z3.push(
     { name: 'Thang máy', sub: 'Lên tầng 4', pos: [-13.6, 8], body: () => lift(3) },
+    { name: 'Thư viện kiến thức', sub: 'Bài viết của bác sĩ', pos: [-4.5, 9.9], body: library('nha-khoa-tong-quat') },
     { name: 'Lễ tân', sub: 'Đặt lịch · gửi phim · liên hệ', pos: [-7, 3.9], npc: rec3, role: 'Lễ tân', say: 'Chào bạn! Thúy Đức mở cửa 08:00 – 18:30 tất cả các ngày trong tuần.', body: contact },
     { name: 'Phòng chờ', sub: '20 năm Thúy Đức', pos: [4.9, 8.6], body: () => `<p class="lead">Chuyên sâu để tạo nên khác biệt. Hành trình chăm sóc nụ cười từ năm 2006 đến nay.</p>` + years([
       ['2006', 'Thành lập', 'TS. Phạm Văn Việt, nguyên quyền trưởng khoa Răng Hàm Mặt bệnh viện Hữu Nghị Việt Xô, thành lập Nha khoa Thúy Đức.'],
@@ -874,6 +993,7 @@ dl.info dd { margin: 0; }
   );
   z4.push(
     { name: 'Thang máy', sub: 'Xuống tầng 3', pos: [-13.6, 8], body: () => lift(4) },
+    { name: 'Thư viện kiến thức', sub: 'Bài viết của bác sĩ', pos: [-5, 9.9], body: library('nieng-rang') },
     { name: 'Lễ tân tầng 4', sub: 'Đặt lịch · gửi phim · liên hệ', pos: [-7.5, 5.3], npc: rec4, role: 'Lễ tân', say: 'Chào mừng bạn đến tầng Invisalign của Thúy Đức Premium!', body: contact },
     { name: 'Khay Invisalign', sub: 'Công nghệ iTero', pos: [-13.8, 2.6], body: () => `<p class="lead">Mỗi hộp trên tường là bộ khay niềng của một khách hàng đang điều trị.</p>` + items([
       ['iTero Lumina (2024)', 'Máy quét dấu răng thế hệ mới: đầu quét nhỏ hơn 50%, phổ quét gấp 3, tốc độ xử lý gấp 2.'],
@@ -1062,6 +1182,7 @@ dl.info dd { margin: 0; }
       ok.hidden = false;
     });
     if ($('up')) sendFilm();
+    if ($('lib-q')) libInit();
     $('pBody').querySelectorAll('[data-floor]').forEach(b => b.onclick = () => changeFloor(+b.dataset.floor));
   }
   // Gửi phim/ảnh: điện thoại dùng bảng chia sẻ (chọn Zalo, ảnh đi kèm); máy tính sao chép lời nhắn rồi mở chat Zalo để khách kéo ảnh vào
