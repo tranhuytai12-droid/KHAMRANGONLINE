@@ -1266,7 +1266,13 @@ dl.info dd { margin: 0; }
 
   /* ================= Nhiều người chơi (Firebase Realtime Database) ================= */
   // Dán cấu hình web app từ Firebase console (Project settings → Your apps). Để trống thì trang chạy một người như cũ.
-  const FB_CONFIG = { apiKey: '', authDomain: '', databaseURL: '', projectId: '', appId: '' };
+  const FB_CONFIG = {
+    apiKey: 'AIzaSyAd2J1-bvaIri7yfRzfwlLutRpotLd2xoM',
+    authDomain: 'thuyduc-premium.firebaseapp.com',
+    databaseURL: 'https://thuyduc-premium-default-rtdb.asia-southeast1.firebasedatabase.app',
+    projectId: 'thuyduc-premium',
+    appId: '1:732050437682:web:32cf3da98aa4e406d4ae2b'
+  };
   const FB_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-';
   const others = new Map(); let net = null, lastSent = '', sentAt = 0;
   const loadJs = src => new Promise((ok, err) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = err; document.head.appendChild(s); });
@@ -1299,13 +1305,16 @@ dl.info dd { margin: 0; }
     o.el.textContent = String(v.n || 'Khách').slice(0, 24);
   }
   function drop(id) { const o = others.get(id); if (!o) return; world.remove(o.c.group); o.el.remove(); others.delete(id); }
+  // gửi vị trí bằng hẹn giờ riêng (không theo khung hình) để tab chạy nền vẫn báo mình còn online
+  setInterval(() => {
+    if (!net || mode !== 'world') return;
+    const now = performance.now(), pos = player.group.position;
+    const st = { n: cfg.name, f: cur.n, x: Math.round(pos.x * 100) / 100, z: Math.round(pos.z * 100) / 100, r: Math.round(player.group.rotation.y * 100) / 100, s: cfg.shirt, h: cfg.hair, fe: cfg.female ? 1 : 0 };
+    const key = JSON.stringify(st);
+    if (key !== lastSent || now - sentAt > 15000) { lastSent = key; sentAt = now; st.t = firebase.database.ServerValue.TIMESTAMP; net.me.set(st).catch(e => console.warn('Firebase:', e.code || e)); }
+  }, 120);
   function netTick(now, dt, t, pos) {
     if (!net) return;
-    if (now - sentAt > 120) {
-      const st = { n: cfg.name, f: cur.n, x: Math.round(pos.x * 100) / 100, z: Math.round(pos.z * 100) / 100, r: Math.round(player.group.rotation.y * 100) / 100, s: cfg.shirt, h: cfg.hair, fe: cfg.female ? 1 : 0 };
-      const key = JSON.stringify(st);
-      if (key !== lastSent || now - sentAt > 15000) { lastSent = key; sentAt = now; st.t = firebase.database.ServerValue.TIMESTAMP; net.me.set(st).catch(() => {}); }
-    }
     let here = 0;
     others.forEach((o, id) => {
       if (now - o.seen > 45000) return drop(id);
