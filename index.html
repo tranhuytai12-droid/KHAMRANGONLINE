@@ -1,0 +1,1206 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Phòng khám 3D Thúy Đức</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<style>
+/* Bố cục: canvas 3D phủ toàn màn hình; giao diện nổi lên trên: màn tạo nhân vật (khung trượt từ dưới), HUD khi đi trong phòng khám 2 tầng, khung thông tin từng khu */
+:root {
+  --bg: #DCEFEC;
+  --sheet: #FFFFFF;
+  --soft: #EEF6F5;
+  --ink: #0E2A33;
+  --muted: #557079;
+  --line: #D3E3E1;
+  --teal: #0F7C86;
+  --gum: #D9536F;
+  --gum-soft: #FBE6EB;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0B1E22; --sheet: #12292F; --soft: #183439; --ink: #E6F0F2; --muted: #93AEB5;
+    --line: #24434A; --teal: #4FC3CB; --gum: #F08AA0; --gum-soft: #3A1E27; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0B1E22; --sheet: #12292F; --soft: #183439; --ink: #E6F0F2; --muted: #93AEB5;
+  --line: #24434A; --teal: #4FC3CB; --gum: #F08AA0; --gum-soft: #3A1E27; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: radial-gradient(120% 80% at 50% 20%, var(--soft), var(--bg));
+  color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55;
+  overflow: hidden; -webkit-tap-highlight-color: transparent;
+}
+#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+h1, h2, h3 { font-family: var(--display); margin: 0; line-height: 1.1; text-wrap: balance; }
+p { margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 0; border-radius: 999px; padding: 13px 22px; font-weight: 700;
+  background: var(--gum); color: #fff; box-shadow: 0 10px 24px -12px var(--gum);
+}
+.btn.soft { background: var(--soft); color: var(--ink); box-shadow: none; }
+.btn[disabled] { opacity: .45; cursor: default; }
+.side { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* ---------- Màn tạo nhân vật ---------- */
+#intro { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none; }
+#intro .brand { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 16px); left: 0; right: 0; text-align: center; display: flex; flex-direction: column; gap: 4px; }
+#intro .brand b { font: 800 22px var(--display); }
+#intro .brand span { font-size: 13px; color: var(--muted); }
+.sheet {
+  pointer-events: auto; background: var(--sheet); border-radius: 26px 26px 0 0;
+  width: 100%; max-width: 560px; margin: 0 auto;
+  padding-block: 22px calc(18px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 -20px 40px -24px rgba(14,42,51,.35);
+  max-height: 62vh; overflow-y: auto;
+}
+.sheet h2 { font-size: 22px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > span { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+input, select, textarea {
+  font: 15px var(--body); color: var(--ink); background: var(--soft);
+  border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px; width: 100%; min-width: 0;
+}
+.row input { flex: 1; }
+.chip { border: 1.5px solid var(--line); background: var(--soft); border-radius: 999px; padding: 8px 16px; font-weight: 600; font-size: 14px; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.sw { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--sheet); box-shadow: 0 0 0 1.5px var(--line); padding: 0; }
+.sw[aria-pressed="true"] { box-shadow: 0 0 0 2.5px var(--teal); }
+#enter { width: 100%; margin-top: 4px; font-size: 16px; }
+
+/* ---------- HUD ---------- */
+#hud { position: fixed; inset: 0; pointer-events: none; }
+.top {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 0; right: 0;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+}
+.top .right { display: flex; gap: 8px; }
+.pill {
+  pointer-events: auto; background: var(--sheet); border: 1px solid var(--line); border-radius: 999px;
+  padding: 8px 14px; display: flex; align-items: center; gap: 10px; box-shadow: 0 8px 20px -14px rgba(0,0,0,.4);
+}
+.pill b { font-family: var(--display); font-size: 15px; }
+.pill small { color: var(--muted); font-size: 12px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--gum); flex: none; }
+#goMenu {
+  pointer-events: auto; position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 60px);
+  background: var(--sheet); border: 1px solid var(--line); border-radius: 18px; padding: 6px; width: 240px;
+  display: flex; flex-direction: column; box-shadow: 0 18px 40px -20px rgba(0,0,0,.45);
+  max-height: calc(100vh - 120px); overflow-y: auto;
+}
+#goMenu h4 { margin: 8px 12px 2px; font: 600 11px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--teal); }
+#goMenu button { text-align: left; background: none; border: 0; border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; }
+#goMenu button:hover { background: var(--soft); }
+#goMenu small { color: var(--muted); font-size: 12px; }
+.hint {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 66px); left: 50%; transform: translateX(-50%);
+  background: rgba(14,42,51,.82); color: #fff; font-size: 13px; padding: 8px 14px; border-radius: 999px;
+  white-space: nowrap; transition: opacity .6s; max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis;
+}
+#prompt {
+  pointer-events: auto; position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  display: flex; align-items: center; gap: 12px; background: var(--sheet); border: 1.5px solid var(--gum);
+  border-radius: 999px; padding: 8px 8px 8px 18px; box-shadow: 0 14px 30px -16px rgba(0,0,0,.5); max-width: calc(100% - 32px);
+}
+#prompt span { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#prompt kbd { font: 600 11px var(--body); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; color: var(--muted); }
+#prompt .btn { padding: 9px 16px; }
+@media (pointer: coarse) { #prompt kbd { display: none; } }
+.bubble {
+  position: absolute; transform: translate(-50%, -100%); background: var(--sheet); color: var(--ink);
+  border-radius: 14px; padding: 8px 12px; font-size: 13px; max-width: 220px; text-align: center;
+  box-shadow: 0 10px 24px -14px rgba(0,0,0,.5); border: 1px solid var(--line);
+}
+.bubble::after { content: ""; position: absolute; left: 50%; bottom: -7px; width: 12px; height: 12px; background: var(--sheet); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: translateX(-50%) rotate(45deg); }
+.bubble b { color: var(--teal); display: block; font-size: 12px; }
+#joy {
+  pointer-events: auto; position: absolute; left: max(20px, env(safe-area-inset-left, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
+  width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,.55); border: 1.5px solid rgba(14,42,51,.15); touch-action: none;
+}
+#joy i { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: var(--gum); box-shadow: 0 6px 14px -6px rgba(0,0,0,.4); }
+@media (pointer: fine) { #joy { display: none; } }
+#zoomBtns { pointer-events: auto; position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: 42%; display: flex; flex-direction: column; gap: 10px; }
+#zoomBtns button { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--sheet); color: var(--ink); font-size: 20px; line-height: 1; box-shadow: 0 8px 20px -14px rgba(0,0,0,.4); }
+#fade { position: fixed; inset: 0; background: #0E2A33; opacity: 0; pointer-events: none; transition: opacity .35s; display: grid; place-items: center; color: #fff; font: 800 28px var(--display); }
+#fade.on { opacity: 1; }
+
+/* ---------- Khung thông tin khu ---------- */
+#panel { position: fixed; inset: auto 0 0 0; display: flex; justify-content: center; pointer-events: none; }
+#panel .sheet { max-height: 70vh; gap: 16px; }
+#panel header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+#panel .eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--teal); font-weight: 600; }
+#panel h2 { font-size: 24px; margin-top: 4px; }
+#panel a { color: var(--teal); }
+#close { border: 0; background: var(--soft); width: 36px; height: 36px; border-radius: 50%; font-size: 18px; flex: none; }
+.list { display: flex; flex-direction: column; gap: 10px; }
+.item { display: flex; gap: 12px; padding: 12px 14px; background: var(--soft); border-radius: 16px; }
+.item b { display: block; }
+.item p { color: var(--muted); font-size: 14px; }
+.item .n { font: 800 18px var(--display); color: var(--gum); min-width: 22px; }
+.item .n.y { font-size: 15px; min-width: 42px; color: var(--teal); }
+.lead { color: var(--muted); }
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form .full { grid-column: 1 / -1; }
+.form label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--muted); min-width: 0; }
+@media (max-width: 460px) { .form { grid-template-columns: 1fr; } }
+.ok { color: var(--teal); font-size: 14px; }
+.quad { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.quad div { background: var(--gum-soft); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; }
+.quad span { font-size: 13px; color: var(--muted); }
+.tbl { overflow-x: auto; }
+.tbl table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl caption { text-align: left; font: 600 16px var(--display); padding: 4px 0 6px; }
+.tbl td { padding: 7px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+.tbl td.num { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; font-weight: 600; }
+.tbl td.nt { color: var(--muted); font-size: 12.5px; }
+.lift { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lift .btn { flex-direction: column; gap: 2px; padding: 16px; }
+.lift .btn small { font-weight: 500; opacity: .85; }
+.todo { font-size: 13px; color: var(--muted); }
+dl.info { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
+dl.info dt { color: var(--muted); }
+dl.info dd { margin: 0; }
+#loading { position: fixed; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .hint, #fade { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Phòng khám nha khoa 3D hai tầng"></canvas>
+<div id="loading">Đang dựng phòng khám…</div>
+
+<!-- Màn tạo nhân vật -->
+<div id="intro" hidden>
+  <div class="brand"><b>Nha khoa Thúy Đức</b><span>Tham quan Thúy Đức Premium 3D · tầng 3 &amp; tầng 4, 257 Giải Phóng</span></div>
+  <div class="sheet side">
+    <h2>Tạo nhân vật</h2>
+    <label class="field"><span>Tên hiển thị</span>
+      <div class="row"><input id="nameIn" maxlength="24" autocomplete="off"><button class="chip" id="randName" type="button">Gợi ý tên</button></div>
+    </label>
+    <div class="field"><span>Giới tính</span>
+      <div class="row" id="genderRow">
+        <button class="chip" type="button" data-g="m" aria-pressed="true">Nam</button>
+        <button class="chip" type="button" data-g="f" aria-pressed="false">Nữ</button>
+      </div>
+    </div>
+    <div class="field"><span>Màu áo</span><div class="row" id="shirtRow"></div></div>
+    <div class="field"><span>Màu tóc</span><div class="row" id="hairRow"></div></div>
+    <button class="btn" id="enter" type="button">Vào phòng khám</button>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud" hidden>
+  <div class="top side">
+    <div class="pill"><span class="dot"></span><div><b id="hudName">Khách</b><br><small id="hudZone">Tầng 3 · Sảnh</small></div></div>
+    <div class="right">
+      <button class="pill" id="floorBtn" type="button"><b>Lên tầng 4</b></button>
+      <button class="pill" id="goBtn" type="button" aria-expanded="false"><b>Đi tới</b></button>
+    </div>
+  </div>
+  <div id="goMenu" hidden></div>
+  <div class="hint" id="hint">WASD để đi · kéo để xoay góc nhìn · chạm sàn để tự đi tới · thang máy để đổi tầng</div>
+  <div id="zoomBtns"><button type="button" id="zIn" aria-label="Phóng to">+</button><button type="button" id="zOut" aria-label="Thu nhỏ">−</button></div>
+  <div id="bubbles"></div>
+  <div id="prompt" hidden><span id="promptText"></span><kbd>E</kbd><button class="btn" id="promptBtn" type="button">Xem</button></div>
+  <div id="joy" aria-hidden="true"><i></i></div>
+</div>
+
+<div id="panel" hidden>
+  <div class="sheet side" role="dialog" aria-modal="false" aria-labelledby="pTitle">
+    <header><div><div class="eyebrow" id="pEyebrow"></div><h2 id="pTitle"></h2></div><button id="close" type="button" aria-label="Đóng">✕</button></header>
+    <div id="pBody" class="list"></div>
+  </div>
+</div>
+<div id="fade" aria-hidden="true"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(async () => {
+  const $ = id => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!window.THREE) { $('loading').textContent = 'Không tải được thư viện 3D. Kiểm tra kết nối mạng rồi tải lại trang.'; return; }
+  try { await document.fonts.ready; } catch (e) {}
+
+  /* ================= Renderer ================= */
+  const canvas = $('c');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 120);
+  function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+  addEventListener('resize', resize); resize();
+  const mat = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.6 }, o));
+
+  /* ================= Nhân vật chibi ================= */
+  function makeChibi(o) {
+    const g = new THREE.Group();
+    const skin = mat(o.skin || 0xf6d2b8, { roughness: 0.7 });
+    const add = (geo, m, x, y, z, parent = g) => { const me = new THREE.Mesh(geo, m); me.position.set(x, y, z); me.castShadow = true; parent.add(me); return me; };
+    const legGeo = new THREE.CylinderGeometry(0.11, 0.1, 0.36, 12); legGeo.translate(0, -0.18, 0);
+    const shoeGeo = new THREE.SphereGeometry(0.12, 12, 8); shoeGeo.scale(1, 0.6, 1.4);
+    const legs = [-0.13, 0.13].map(x => {
+      const pivot = new THREE.Group(); pivot.position.set(x, 0.42, 0); g.add(pivot);
+      add(legGeo, mat(o.pants), 0, 0, 0, pivot); add(shoeGeo, mat(0x2d3a40), 0, -0.38, 0.04, pivot);
+      return pivot;
+    });
+    const body = add(new THREE.CylinderGeometry(0.24, 0.34, 0.56, 20), mat(o.shirt), 0, 0.7, 0);
+    if (o.coat) {
+      add(new THREE.CylinderGeometry(0.255, 0.37, 0.62, 20, 1, true), mat(0xffffff, { side: THREE.DoubleSide }), 0, 0.66, 0);
+      const st = add(new THREE.TorusGeometry(0.17, 0.018, 6, 24, Math.PI), mat(0x22313a), 0, 0.9, 0.17); st.rotation.z = Math.PI; st.rotation.x = -0.3;
+    }
+    if (o.scarf) { const sc = add(new THREE.TorusGeometry(0.16, 0.04, 8, 20), mat(0xf2a33a), 0, 0.98, 0); sc.rotation.x = Math.PI / 2; }
+    const armGeo = new THREE.CylinderGeometry(0.075, 0.07, 0.34, 10); armGeo.translate(0, -0.17, 0);
+    const handGeo = new THREE.SphereGeometry(0.08, 10, 8);
+    const arms = [-1, 1].map(s => {
+      const pivot = new THREE.Group(); pivot.position.set(0.3 * s, 0.93, 0); pivot.rotation.z = 0.22 * s; g.add(pivot);
+      add(armGeo, mat(o.coat ? 0xffffff : o.shirt), 0, 0, 0, pivot); add(handGeo, skin, 0, -0.37, 0, pivot);
+      return pivot;
+    });
+    const head = new THREE.Group(); head.position.y = 1.36; g.add(head);
+    add(new THREE.SphereGeometry(0.42, 32, 24), skin, 0, 0, 0, head);
+    const eyeGeo = new THREE.SphereGeometry(0.058, 12, 10), eyeM = mat(0x1d2326, { roughness: 0.2 });
+    const glint = new THREE.SphereGeometry(0.018, 8, 6), glintM = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    [-1, 1].forEach(s => {
+      add(eyeGeo, eyeM, 0.14 * s, 0.0, 0.375, head); add(glint, glintM, 0.14 * s + 0.02, 0.025, 0.43, head);
+      const bl = add(new THREE.CircleGeometry(0.06, 16), new THREE.MeshBasicMaterial({ color: 0xf29aa8, transparent: true, opacity: 0.6 }), 0.25 * s, -0.09, 0.335, head);
+      bl.rotation.y = 0.55 * s; bl.castShadow = false;
+    });
+    add(new THREE.TorusGeometry(0.05, 0.013, 6, 14, Math.PI), mat(0x9b3a46), 0, -0.13, 0.4, head).rotation.z = Math.PI;
+    const hairM = mat(o.hair, { roughness: 0.5 });
+    add(new THREE.SphereGeometry(0.445, 32, 20, 0, Math.PI * 2, 0, Math.PI * 0.52), hairM, 0, 0.02, -0.02, head).rotation.x = -0.32;
+    if (o.female) {
+      add(new THREE.SphereGeometry(0.44, 24, 18), hairM, 0, -0.12, -0.1, head).scale.set(1.02, 1.25, 0.9);
+      add(new THREE.SphereGeometry(0.15, 16, 12), hairM, 0, 0.42, -0.22, head);
+    } else add(new THREE.SphereGeometry(0.12, 12, 10), hairM, 0.16, 0.3, 0.28, head).scale.set(1.3, 0.7, 0.8);
+    if (o.mask) add(new THREE.SphereGeometry(0.43, 24, 12, -0.9 + Math.PI / 2, 1.8, Math.PI * 0.55, Math.PI * 0.22), mat(0x9fd8dc), 0, 0, 0.005, head);
+    return { group: g, legs, arms, body, head };
+  }
+  function animateChibi(c, phase, amt, t) {
+    const s = Math.sin(phase) * 0.7 * amt;
+    c.legs[0].rotation.x = s; c.legs[1].rotation.x = -s;
+    c.arms[0].rotation.x = -s * 0.8; c.arms[1].rotation.x = s * 0.8;
+    c.body.position.y = 0.7 + Math.abs(Math.cos(phase)) * 0.04 * amt;
+    c.head.position.y = 1.36 + Math.abs(Math.cos(phase)) * 0.05 * amt + (reduce ? 0 : Math.sin(t * 2) * 0.012 * (1 - amt));
+  }
+
+  /* ================= Răng 16 (mô hình) ================= */
+  function makeTooth() {
+    const enamel = new THREE.MeshPhysicalMaterial({ color: 0xf7f4ec, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.15 });
+    const dentin = mat(0xead9b8, { roughness: 0.5 });
+    const geo = new THREE.SphereGeometry(1, 64, 48), p = geo.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      const th = Math.atan2(v.z, v.x), r = Math.hypot(v.x, v.z);
+      let y = v.y, sx = 1.12, sz = 1;
+      if (y > 0) y = y * 0.62 + Math.pow(y, 3) * 0.16 * (0.5 + 0.5 * Math.cos(4 * th + 0.4)) - 0.22 * Math.exp(-(r * r) / 0.09) * y;
+      else { const k = 1 - 0.22 * -y; sx *= k; sz *= k; y *= 0.55; }
+      p.setXYZ(i, v.x * sx, y, v.z * sz);
+    }
+    geo.computeVertexNormals();
+    const t = new THREE.Group();
+    const crown = new THREE.Mesh(geo, enamel); crown.castShadow = true; t.add(crown);
+    const rootGeo = new THREE.CylinderGeometry(0.34, 0.07, 1.9, 24, 12), rp = rootGeo.attributes.position;
+    for (let i = 0; i < rp.count; i++) { v.fromBufferAttribute(rp, i); const k = (0.95 - v.y) / 1.9; rp.setX(i, v.x + 0.18 * k * k); }
+    rootGeo.computeVertexNormals(); rootGeo.translate(0, -0.95, 0);
+    [[0.38, 0.25, 0], [-0.38, 0.25, Math.PI], [0, -0.34, Math.PI / 2]].forEach(([x, z, ry]) => {
+      const m = new THREE.Mesh(rootGeo, dentin); m.position.set(x, -0.55, z); m.rotation.y = ry; m.rotation.z = x ? 0.12 * Math.sign(x) : 0; m.castShadow = true; t.add(m);
+    });
+    return t;
+  }
+
+  /* ================= Biển tên (sprite) ================= */
+  const signs = [];
+  function makeSign(title, sub, color = '#0F7C86') {
+    const c = document.createElement('canvas'); c.width = 640; c.height = sub ? 220 : 140;
+    const x = c.getContext('2d'), r = 46, w = c.width, h = c.height;
+    x.beginPath(); x.moveTo(r, 0); x.arcTo(w, 0, w, h, r); x.arcTo(w, h, 0, h, r); x.arcTo(0, h, 0, 0, r); x.arcTo(0, 0, w, 0, r); x.closePath();
+    x.fillStyle = '#ffffff'; x.fill(); x.lineWidth = 10; x.strokeStyle = color; x.stroke();
+    x.textAlign = 'center'; x.fillStyle = '#0E2A33';
+    x.font = '800 66px "Bricolage Grotesque", sans-serif'; x.fillText(title, w / 2, sub ? 96 : 92);
+    if (sub) { x.font = '500 38px "Be Vietnam Pro", sans-serif'; x.fillStyle = '#557079'; x.fillText(sub, w / 2, 165); }
+    const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex }));
+    s.scale.set(2.8, 2.8 * h / w, 1); signs.push(s); return s;
+  }
+
+  /* ================= Cảnh xem trước nhân vật ================= */
+  const preview = new THREE.Scene();
+  preview.add(new THREE.HemisphereLight(0xffffff, 0x9cc7c2, 1.0));
+  const pk = new THREE.DirectionalLight(0xffffff, 0.9); pk.position.set(2, 4, 3); preview.add(pk);
+  const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.82, 0.22, 48), mat(0xffffff, { roughness: 0.35 }));
+  pedestal.position.y = -0.11; preview.add(pedestal);
+  const pedRing = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.025, 8, 64), mat(0xd9536f)); pedRing.rotation.x = Math.PI / 2; preview.add(pedRing);
+
+  /* ================= Cảnh phòng khám (dùng chung cho 2 tầng) ================= */
+  const world = new THREE.Scene();
+  world.background = new THREE.Color(0xeae5de);
+  world.add(new THREE.HemisphereLight(0xfff6ea, 0xb5a796, 0.62));
+  const sun = new THREE.DirectionalLight(0xfff8ee, 0.6);
+  sun.position.set(8, 16, 10); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -20, right: 20, top: 16, bottom: -16, near: 1, far: 50 });
+  sun.shadow.bias = -0.0005; world.add(sun);
+
+  const W = 16, D = 12, CEIL = 4.2;
+  const floors = {};
+  let F = null; // tầng đang dựng
+  const newFloor = n => { const f = { n, g: new THREE.Group(), obstacles: [], zones: [], npcs: [] }; world.add(f.g); floors[n] = f; F = f; return f; };
+  const block = (x, z, w, d) => F.obstacles.push({ x0: x - w / 2, x1: x + w / 2, z0: z - d / 2, z1: z + d / 2 });
+  const put = (m, parent) => { (parent || F.g).add(m); return m; };
+  function box(w, h, d, color, x, y, z, parent, opts) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), color.isMaterial ? color : mat(color, opts));
+    m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; return put(m, parent);
+  }
+  function cyl(rt, rb, h, color, x, y, z, parent, seg = 24) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), color.isMaterial ? color : mat(color));
+    m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; return put(m, parent);
+  }
+  const sphere = (r, color, x, y, z, parent) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), color.isMaterial ? color : mat(color)); m.position.set(x, y, z); m.castShadow = true; return put(m, parent); };
+  const addSign = (s, x, y, z) => { s.position.set(x, y, z); put(s); return s; };
+
+  /* ---------- Vật liệu & texture dùng chung ---------- */
+  const wallM = mat(0xf4f1ec, { roughness: 0.85 }), skirtM = mat(0xb08a62), steelM = mat(0xb9c0c4, { metalness: 0.7, roughness: 0.3 });
+  const woodM = mat(0xc89b6a, { roughness: 0.55 }), leatherOrange = mat(0xd9893f, { roughness: 0.5 }), terracotta = mat(0xa84b2f, { roughness: 0.7 });
+  const leafM = mat(0x4f9d69, { roughness: 0.8 });
+  const glassM = new THREE.MeshStandardMaterial({ color: 0xd6eef2, transparent: true, opacity: 0.22, roughness: 0.05, depthWrite: false });
+  function canvasTex(w, h, draw, repeat) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8;
+    if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
+    return t;
+  }
+  const flutedTex = () => canvasTex(64, 8, (x) => { const g = x.createLinearGradient(0, 0, 64, 0); g.addColorStop(0, '#d6d0c8'); g.addColorStop(0.45, '#ffffff'); g.addColorStop(1, '#d6d0c8'); x.fillStyle = g; x.fillRect(0, 0, 64, 8); }, [10, 1]);
+  const frost = {
+    dots: canvasTex(256, 128, (x) => {
+      x.fillStyle = 'rgba(255,255,255,0.78)'; x.fillRect(0, 20, 256, 88);
+      x.fillStyle = 'rgba(150,160,165,0.55)'; for (let i = 0; i < 5; i++) { x.beginPath(); x.arc(30 + i * 22, 64, 9, 0, Math.PI * 2); x.fill(); }
+      x.fillStyle = 'rgba(80,110,160,0.6)'; x.font = '600 12px sans-serif'; x.fillText('THUY DUC PREMIUM', 140, 36);
+    }, [1, 1]),
+    flowers: canvasTex(256, 128, (x) => {
+      x.fillStyle = 'rgba(255,255,255,0.78)'; x.fillRect(0, 14, 256, 100);
+      x.fillStyle = 'rgba(170,175,180,0.5)';
+      [[50, 64, 22], [150, 50, 16], [210, 84, 12]].forEach(([cx, cy, r]) => { for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; x.beginPath(); x.ellipse(cx + Math.cos(a) * r * 0.8, cy + Math.sin(a) * r * 0.8, r * 0.45, r * 0.2, a, 0, Math.PI * 2); x.fill(); } });
+    }, [1, 1])
+  };
+  frost.dots.wrapS = frost.flowers.wrapS = THREE.RepeatWrapping;
+  const windowTex = canvasTex(256, 200, (x) => {
+    const g = x.createLinearGradient(0, 0, 0, 200); g.addColorStop(0, '#dfeaf0'); g.addColorStop(1, '#c7d3d8'); x.fillStyle = g; x.fillRect(0, 0, 256, 200);
+    x.fillStyle = 'rgba(150,140,130,.5)'; [[10, 120, 60, 80], [80, 100, 50, 100], [140, 130, 70, 70], [200, 90, 50, 110]].forEach(r => x.fillRect(...r));
+    x.fillStyle = '#e8dccb'; for (let i = 0; i < 6; i++) x.fillRect(0, i * 10, 256, 6);
+    x.strokeStyle = '#2f2b29'; x.lineWidth = 10; x.strokeRect(5, 5, 246, 190); x.beginPath(); x.moveTo(128, 60); x.lineTo(128, 200); x.moveTo(0, 60); x.lineTo(256, 60); x.stroke();
+  });
+  function paintingTex() {
+    return canvasTex(256, 256, (px) => {
+      px.fillStyle = '#cfe3ee'; px.fillRect(0, 0, 256, 256);
+      const pc = ['#e2553d', '#f2a33a', '#2c6fb0', '#f5e2b8', '#7cc0d8', '#c2362f', '#ffffff'];
+      for (let i = 0; i < 70; i++) { px.strokeStyle = pc[i % pc.length]; px.lineWidth = 4 + (i % 5) * 3; px.beginPath(); const y = 60 + (i * 53) % 150; px.moveTo(40 + (i * 29) % 80, y); px.lineTo(150 + (i * 41) % 80, y + ((i % 3) - 1) * 12); px.stroke(); }
+      px.fillStyle = '#e2553d'; px.beginPath(); px.moveTo(60, 120); px.lineTo(200, 120); px.lineTo(175, 150); px.lineTo(85, 150); px.fill();
+    });
+  }
+  function logoTex() {
+    return canvasTex(1024, 900, (lx) => {
+      const grd = lx.createRadialGradient(512, 380, 40, 512, 380, 620); grd.addColorStop(0, '#ffffff'); grd.addColorStop(1, '#f1ece6'); lx.fillStyle = grd; lx.fillRect(0, 0, 1024, 900);
+      lx.save(); lx.translate(512, 300); lx.scale(1.15, 1.15); lx.beginPath(); lx.moveTo(0, -95);
+      lx.bezierCurveTo(60, -150, 165, -120, 160, -20); lx.bezierCurveTo(158, 60, 110, 110, 95, 200); lx.bezierCurveTo(85, 250, 55, 250, 45, 200);
+      lx.bezierCurveTo(32, 120, 18, 80, 0, 80); lx.bezierCurveTo(-18, 80, -32, 120, -45, 200); lx.bezierCurveTo(-55, 250, -85, 250, -95, 200);
+      lx.bezierCurveTo(-110, 110, -158, 60, -160, -20); lx.bezierCurveTo(-165, -120, -60, -150, 0, -95); lx.closePath();
+      lx.shadowColor = '#5fb4ff'; lx.shadowBlur = 40; lx.lineWidth = 26; lx.strokeStyle = '#2f80d8'; lx.stroke(); lx.restore();
+      lx.textAlign = 'center'; lx.shadowColor = '#5fb4ff'; lx.shadowBlur = 24; lx.fillStyle = '#2a6fc4';
+      lx.font = '800 118px "Bricolage Grotesque", sans-serif'; lx.fillText('THUY DUC', 512, 720);
+      lx.font = '600 56px "Be Vietnam Pro", sans-serif'; lx.fillText('P R E M I U M', 512, 800);
+    });
+  }
+
+  /* ---------- Khối dựng dùng chung ---------- */
+  function shell(floorTex) {
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(W * 2, D * 2), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.95 }));
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; put(floor); F.floor = floor;
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W * 2, D * 2), mat(0xfbfaf8, { roughness: 1 }));
+    ceil.rotation.x = Math.PI / 2; ceil.position.y = CEIL; put(ceil);
+    [[W * 2, 0.3, 0, -D], [W * 2, 0.3, 0, D], [0.3, D * 2, -W, 0], [0.3, D * 2, W, 0]].forEach(([w, d, x, z]) => { box(w, CEIL, d, wallM, x, CEIL / 2, z).castShadow = false; });
+    box(W * 2 - 0.4, 0.16, 0.06, skirtM, 0, 0.08, -D + 0.18); box(W * 2 - 0.4, 0.16, 0.06, skirtM, 0, 0.08, D - 0.18);
+    box(0.06, 0.16, D * 2 - 0.4, skirtM, -W + 0.18, 0.08, 0); box(0.06, 0.16, D * 2 - 0.4, skirtM, W - 0.18, 0.08, 0);
+  }
+  // cửa sổ có rèm cuốn trên tường bao: side 'n' (tường trước), 's' (tường sau), 'e' (tường phải)
+  function windowAt(side, at, w = 2.6) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, 2.0), new THREE.MeshBasicMaterial({ map: windowTex }));
+    if (side === 'n') { m.position.set(at, 2.2, D - 0.16); m.rotation.y = Math.PI; }
+    if (side === 's') { m.position.set(at, 2.2, -D + 0.16); }
+    if (side === 'e') { m.position.set(W - 0.16, 2.2, at); m.rotation.y = -Math.PI / 2; }
+    put(m);
+  }
+  // vách thẳng theo trục: 'solid' (tường thạch cao) hoặc 'glass' (kính có dải mờ)
+  function seg(x0, z0, x1, z1, kind, pattern = 'dots') {
+    const alongX = Math.abs(x1 - x0) > Math.abs(z1 - z0), len = alongX ? Math.abs(x1 - x0) : Math.abs(z1 - z0);
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    if (len < 0.05) return;
+    if (kind === 'solid') box(alongX ? len : 0.14, CEIL, alongX ? 0.14 : len, wallM, cx, CEIL / 2, cz).castShadow = false;
+    else {
+      const g = new THREE.Mesh(new THREE.BoxGeometry(alongX ? len : 0.05, CEIL, alongX ? 0.05 : len), glassM); g.position.set(cx, CEIL / 2, cz); put(g);
+      const tex = frost[pattern].clone(); tex.needsUpdate = true; tex.repeat.set(len / 1.8, 1);
+      const band = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.95), new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
+      band.position.set(cx, 1.3, cz); if (!alongX) band.rotation.y = Math.PI / 2; put(band);
+      box(alongX ? len : 0.07, 0.07, alongX ? 0.07 : len, steelM, cx, CEIL - 0.04, cz);
+    }
+    block(cx, cz, alongX ? len : 0.22, alongX ? 0.22 : len);
+  }
+  const wallX = (z, x0, x1, gaps, kind, pat) => { let a = x0; [...gaps, [x1, x1]].forEach(([g0, g1]) => { seg(a, z, g0, z, kind, pat); a = g1; }); };
+  const wallZ = (x, z0, z1, gaps, kind, pat) => { let a = z0; [...gaps, [z1, z1]].forEach(([g0, g1]) => { seg(x, a, x, g0, kind, pat); a = g1; }); };
+  function plant(x, z, s = 1, potColor = 0xffffff) {
+    cyl(0.3 * s, 0.24 * s, 0.5 * s, potColor, x, 0.25 * s, z);
+    [[0, 0.9, 0, 0.4], [0.2, 1.2, 0.1, 0.28], [-0.18, 1.15, -0.1, 0.3]].forEach(([a, b, c, r]) => sphere(r * s, leafM, x + a * s, b * s, z + c * s));
+    block(x, z, 0.7 * s, 0.7 * s);
+  }
+  function elevator() {
+    box(0.25, 2.8, 2.6, steelM, -W + 0.2, 1.4, 8);
+    box(0.06, 2.5, 1.0, mat(0xd9dee1, { metalness: 0.8, roughness: 0.25 }), -W + 0.34, 1.25, 7.5);
+    box(0.06, 2.5, 1.0, mat(0xd9dee1, { metalness: 0.8, roughness: 0.25 }), -W + 0.34, 1.25, 8.5);
+    box(0.05, 0.3, 0.5, 0x1b1f22, -W + 0.34, 2.95, 8);
+    box(0.05, 0.25, 0.14, 0x2c3236, -W + 0.34, 1.3, 9.6);
+    addSign(makeSign('Thang máy', 'Tầng 3 ⇄ Tầng 4', '#D9536F'), -W + 1.0, 3.3, 8);
+  }
+  function stool(x, z, seatColor = leatherOrange) {
+    cyl(0.24, 0.24, 0.1, seatColor, x, 0.62, z); cyl(0.03, 0.03, 0.55, steelM, x, 0.32, z, null, 8); cyl(0.28, 0.28, 0.04, 0x2a2a2a, x, 0.05, z);
+  }
+  function dentalChair(x, z, rot = 0, color = leatherOrange) {
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot; put(g);
+    cyl(0.4, 0.5, 0.35, 0xffffff, 0, 0.175, 0, g);
+    box(0.72, 0.16, 1.0, color, 0, 0.55, 0.1, g);
+    box(0.66, 0.12, 0.8, color, 0, 0.42, 0.9, g).rotation.x = 0.4;
+    box(0.72, 0.14, 1.1, color, 0, 0.88, -0.75, g).rotation.x = -0.75;
+    box(0.4, 0.12, 0.3, color, 0, 1.25, -1.25, g).rotation.x = -0.4;
+    cyl(0.05, 0.05, 2.3, steelM, 1.0, 1.15, -0.9, g, 12); box(1.2, 0.08, 0.08, steelM, 0.45, 2.28, -0.9, g);
+    cyl(0.22, 0.16, 0.12, 0xffffff, 0, 2.15, -0.6, g).rotation.x = 0.5;
+    box(0.6, 0.05, 0.4, 0xffffff, -0.85, 0.95, 0.2, g); cyl(0.03, 0.03, 0.95, steelM, -0.85, 0.47, 0.2, g, 8);
+    box(0.5, 0.32, 0.04, 0x22313a, 1.0, 1.75, -0.6, g);
+    const c = Math.cos(rot), s = Math.sin(rot), wx = Math.abs(c) * 2.3 + Math.abs(s) * 2.6, wz = Math.abs(s) * 2.3 + Math.abs(c) * 2.6;
+    block(x, z, wx, wz);
+  }
+  function archShape(w, h, r, y0 = 0) {
+    const s = new THREE.Shape(); s.moveTo(-w / 2, y0); s.lineTo(w / 2, y0); s.lineTo(w / 2, h - r);
+    s.quadraticCurveTo(w / 2, h, w / 2 - r, h); s.lineTo(-w / 2 + r, h); s.quadraticCurveTo(-w / 2, h, -w / 2, h - r); s.closePath(); return s;
+  }
+  const ringShape = (w, h, r, t) => { const s = archShape(w + t * 2, h + t, r + t); s.holes.push(archShape(w, h, r, 0.02)); return s; };
+  // hốc vòm ốp lam sọc, viền gỗ, đèn hắt, tranh tròn; đặt sát tường, mặt quay theo rotY
+  function niche(x, z, rotY, w = 2.6, h = 3.4) {
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; put(g);
+    const panel = new THREE.Mesh(new THREE.ShapeGeometry(archShape(w, h, 1.0), 24), new THREE.MeshStandardMaterial({ map: flutedTex(), roughness: 0.8 })); panel.position.z = 0.02; g.add(panel);
+    g.add(new THREE.Mesh(new THREE.ExtrudeGeometry(ringShape(w, h, 1.0, 0.14), { depth: 0.12, bevelEnabled: false, curveSegments: 24 }), mat(0xa77b52, { roughness: 0.5 })));
+    const led = new THREE.Mesh(new THREE.ShapeGeometry(ringShape(w - 0.1, h - 0.05, 0.95, 0.05), 24), new THREE.MeshBasicMaterial({ color: 0xfff1d6 })); led.position.z = 0.03; g.add(led);
+    const p = new THREE.Mesh(new THREE.CircleGeometry(0.62, 48), new THREE.MeshStandardMaterial({ map: paintingTex(), roughness: 0.7 })); p.position.set(0, 2.3, 0.06); g.add(p);
+  }
+  const sector = (r1, r2, a0, a1) => { const s = new THREE.Shape(); s.absarc(0, 0, r2, a0, a1, false); s.absarc(0, 0, r1, a1, a0, true); s.closePath(); return s; };
+  function curvedSofa(cx, cz, r1, r2, a0, a1, cushions) {
+    const boucle = mat(0xf2efe9, { roughness: 1 });
+    [[r1, r2, 0.36, 0.06], [r2 - 0.3, r2, 0.85, 0.08]].forEach(([q1, q2, h, bt]) => {
+      const geo = new THREE.ExtrudeGeometry(sector(q1, q2, a0, a1), { depth: h, curveSegments: 40, bevelEnabled: true, bevelThickness: bt, bevelSize: 0.06, bevelSegments: 3 });
+      geo.rotateX(-Math.PI / 2);
+      const m = new THREE.Mesh(geo, boucle); m.position.set(cx, 0.08, cz); m.castShadow = m.receiveShadow = true; put(m);
+    });
+    cushions.forEach(a => { const rr = r2 - 0.45; const c = box(0.5, 0.48, 0.15, 0xc8202f, cx + Math.cos(a) * rr, 0.76, cz - Math.sin(a) * rr); c.rotation.y = Math.PI / 2 + a; });
+  }
+  function marbleTable(x, z, r = 0.6) {
+    cyl(r, r, 0.05, mat(0xfafafa, { roughness: 0.15 }), x, 0.52, z); cyl(0.1, 0.28, 0.5, 0xeeeeee, x, 0.25, z);
+    cyl(0.05, 0.04, 0.16, new THREE.MeshStandardMaterial({ color: 0xdfeff2, transparent: true, opacity: 0.6 }), x, 0.63, z);
+    [[0, 0], [0.05, 0.04], [-0.05, 0.04]].forEach(([dx, dz], i) => sphere(0.05, i % 2 ? 0xe23b5a : 0xd81f3c, x + dx, 0.78, z + dz));
+    block(x, z, r * 2 + 0.1, r * 2 + 0.1);
+  }
+  function downlights(skip) {
+    const geo = new THREE.CircleGeometry(0.08, 16), m = new THREE.MeshBasicMaterial({ color: 0xfff6e0 });
+    for (let x = -14; x <= 14; x += 3) for (let z = -10.5; z <= 10.5; z += 3) {
+      if (skip && skip(x, z)) continue;
+      const d = new THREE.Mesh(geo, m); d.rotation.x = Math.PI / 2; d.position.set(x, CEIL - 0.01, z); put(d);
+    }
+  }
+  function globes(cx, cz, n, spread, y0 = 2.6, y1 = 3.7) {
+    const gm = new THREE.MeshStandardMaterial({ color: 0xfff3dd, emissive: 0xffd49a, emissiveIntensity: 0.9, roughness: 0.2 });
+    const cm = new THREE.MeshBasicMaterial({ color: 0x9a8f86 });
+    for (let i = 0; i < n; i++) {
+      const a = i * 2.4, r = 0.2 + Math.sqrt(i / n) * spread, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r * 0.8;
+      const y = y0 + ((i * 37) % 11) / 11 * (y1 - y0), s = 0.12 + ((i * 13) % 5) * 0.02;
+      const gl = new THREE.Mesh(new THREE.SphereGeometry(s, 16, 12), gm); gl.position.set(x, y, z); put(gl);
+      const cd = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, CEIL - y, 4), cm); cd.position.set(x, (CEIL + y) / 2, z); put(cd);
+    }
+  }
+  function npc(opts, x, z, rot, zoneRole) { const c = makeChibi(opts); c.group.position.set(x, 0, z); c.group.rotation.y = rot; c.base = rot; put(c.group); F.npcs.push(c); return c; }
+  const P = (x, z) => [(x + W) / (2 * W) * 1024, (z + D) / (2 * D) * 768];
+  function speckle(fx, n = 9000) { for (let i = 0; i < n; i++) { fx.fillStyle = i % 2 ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.06)'; fx.fillRect(Math.random() * 1024, Math.random() * 768, 2, 2); } }
+
+  /* ==================================================================
+     TẦNG 3: sảnh lễ tân, phòng chờ, X-quang, phòng bé, phòng điều trị
+     ================================================================== */
+  newFloor(3);
+  shell(canvasTex(1024, 768, (fx) => {
+    fx.fillStyle = '#5f6468'; fx.fillRect(0, 0, 1024, 768); // thảm xám đậm
+    fx.strokeStyle = '#cfc6ba'; fx.lineCap = 'round'; // lối đi thảm be uốn lượn
+    [[4.6, [-13, 8], [-8, 7.5], [-3, 3.5], [4, 6.8]], [4.2, [4, 6.8], [8, 8], [11, 6], [13, 4]], [3.4, [-3, 3.5], [-1, 0], [-6, -2.5], [-15, -2.5]], [3.2, [-6, -2.5], [2, -2.5], [8, -2.5], [15, -2.5]]].forEach(([w, a, b, c, d]) => {
+      fx.lineWidth = w / (2 * W) * 1024; fx.beginPath(); fx.moveTo(...P(...a)); fx.bezierCurveTo(...P(...b), ...P(...c), ...P(...d)); fx.stroke();
+    });
+    fx.fillStyle = '#9ea2a5'; [[-16, -12, -9, -4.5], [-4, -12, 16, -4.5]].forEach(([x0, z0, x1, z1]) => { const [a, b] = P(x0, z0), [c, d] = P(x1, z1); fx.fillRect(a, b, c - a, d - b); });
+    fx.fillStyle = '#6f7478'; { const [a, b] = P(-9, -12), [c, d] = P(-4, -4.5); fx.fillRect(a, b, c - a, d - b); }
+    speckle(fx);
+  }));
+  elevator();
+  // Trần lam gỗ uốn lượn qua sảnh
+  const zc3 = x => 3.6 + 1.8 * Math.sin((x + 4) * 0.3), HW3 = 1.5, LX0 = -14, LX1 = 12;
+  {
+    const band = new THREE.Shape();
+    for (let x = LX0; x <= LX1 + 1e-6; x += 0.25) band[x === LX0 ? 'moveTo' : 'lineTo'](x, zc3(x) - HW3);
+    for (let x = LX1; x >= LX0 - 1e-6; x -= 0.25) band.lineTo(x, zc3(x) + HW3);
+    const bg = new THREE.ShapeGeometry(band); bg.rotateX(Math.PI / 2);
+    const back = new THREE.Mesh(bg, mat(0x4a2c1f, { roughness: 0.9, side: THREE.DoubleSide })); back.position.y = CEIL - 0.03; put(back);
+    const G = 0.42, cells = [];
+    for (let x = LX0; x < LX1; x += G) for (let z = -2; z < 9; z += G) if (Math.abs(z + G / 2 - zc3(x + G / 2)) < HW3 - 0.05) cells.push([x, z]);
+    const beams = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat(0x7a4a30, { roughness: 0.7 }), cells.length * 2);
+    const o3 = new THREE.Object3D(); let bi = 0;
+    cells.forEach(([x, z]) => {
+      o3.position.set(x + G / 2, CEIL - 0.12, z); o3.scale.set(G, 0.18, 0.035); o3.updateMatrix(); beams.setMatrixAt(bi++, o3.matrix);
+      o3.position.set(x, CEIL - 0.12, z + G / 2); o3.scale.set(0.035, 0.18, G); o3.updateMatrix(); beams.setMatrixAt(bi++, o3.matrix);
+    });
+    put(beams);
+    [-HW3, HW3].forEach(s => {
+      const pts = []; for (let x = LX0; x <= LX1; x += 0.25) pts.push(new THREE.Vector3(x, CEIL - 0.2, zc3(x) + s));
+      put(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 160, 0.06, 6), new THREE.MeshBasicMaterial({ color: 0xffd9a8 })));
+    });
+  }
+  downlights((x, z) => Math.abs(z - zc3(x)) < HW3 + 0.3);
+
+  // --- Lễ tân tầng 3: quầy trắng cong sọc xanh, tường logo, chùm đèn cầu, kệ sách tròn ---
+  box(6, CEIL, 0.3, wallM, -7, CEIL / 2, 0.6).castShadow = false; block(-7, 0.6, 6, 0.35);
+  const logo3 = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 2.6), new THREE.MeshStandardMaterial({ map: logoTex(), emissive: 0xffffff, emissiveMap: logoTex(), emissiveIntensity: 0.35, roughness: 0.9 }));
+  logo3.position.set(-7, 2.3, 0.76); put(logo3);
+  function curvedDesk(cx, cz, r1, r2, half, stripeColor) {
+    const a0 = -Math.PI / 2 - half, a1 = -Math.PI / 2 + half;
+    const mk = (q1, q2, h, y, m) => { const geo = new THREE.ExtrudeGeometry(sector(q1, q2, a0, a1), { depth: h, curveSegments: 40, bevelEnabled: false }); geo.rotateX(-Math.PI / 2); const me = new THREE.Mesh(geo, m); me.position.set(cx, y, cz); me.castShadow = me.receiveShadow = true; put(me); };
+    mk(r1, r2, 1.0, 0, mat(0xf6f5f2, { roughness: 0.4 }));
+    mk(r1 - 0.08, r2 + 0.06, 0.05, 1.0, mat(0xffffff, { roughness: 0.25 }));
+    if (stripeColor) [0.3, 0.45, 0.6].forEach(y => mk(r2, r2 + 0.015, 0.035, y, new THREE.MeshBasicMaterial({ color: stripeColor })));
+  }
+  curvedDesk(-7, -1.4, 3.1, 3.6, 0.5, 0x2f6fd0);
+  block(-7, 2.0, 3.8, 1.0);
+  box(0.6, 0.42, 0.04, 0xe9e9e9, -6.4, 1.3, 1.95); box(0.08, 0.2, 0.08, 0xcfcfcf, -6.4, 1.12, 1.97);
+  sphere(0.16, 0x5bc84b, -8.0, 1.2, 2.0);
+  [[-8.0, 3.0], [-6.2, 3.1]].forEach(([x, z]) => { cyl(0.22, 0.2, 0.08, 0x6b4a32, x, 0.8, z); [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => box(0.04, 0.8, 0.04, 0x6b4a32, x + a * 0.14, 0.4, z + b * 0.14)); block(x, z, 0.5, 0.5); });
+  cyl(0.06, 0.06, 1.6, 0x6b4a32, -4.4, 0.8, 2.4); [0.05, 0.55, 1.05, 1.55].forEach(y => cyl(0.5, 0.5, 0.05, 0x7a5236, -4.4, y, 2.4));
+  [0.3, 0.8, 1.3].forEach((y, i) => [0, 1.6, 3.2].forEach((a, k) => box(0.08, 0.32, 0.22, [0x2c6fb0, 0xe2553d, 0xf2a33a][(i + k) % 3], -4.4 + Math.cos(a + i) * 0.35, y, 2.4 + Math.sin(a + i) * 0.35)));
+  block(-4.4, 2.4, 1.1, 1.1);
+  globes(-7, 2.6, 30, 2.0);
+  put(new THREE.PointLight(0xffd49a, 0.5, 12)).position.set(-7, 3, 2.6);
+  const rec3 = npc({ shirt: 0x1f2f5c, pants: 0x1f2f5c, hair: 0x2b1a12, female: true, scarf: true }, -7, 1.3, 0);
+  addSign(makeSign('Lễ tân', 'Hotline 033 609 3366'), -7, 3.1, 3.4);
+
+  // --- Phòng chờ tầng 3: băng ghế chữ L đệm da cam, bồn cây tròn, bàn tròn nhỏ ---
+  box(12.6, 0.45, 0.9, woodM, 7.3, 0.225, D - 0.6); box(12.6, 0.12, 0.9, terracotta, 7.3, 0.51, D - 0.6); box(12.6, 0.5, 0.18, terracotta, 7.3, 0.85, D - 0.22);
+  box(0.9, 0.45, 8.6, woodM, W - 0.6, 0.225, 6.1); box(0.9, 0.12, 8.6, terracotta, W - 0.6, 0.51, 6.1); box(0.18, 0.5, 8.6, terracotta, W - 0.22, 0.85, 6.1);
+  block(7.3, D - 0.6, 12.8, 1.1); block(W - 0.6, 6.1, 1.1, 8.8);
+  [[0.6, D - 0.7], [W - 0.7, D - 0.7], [W - 0.7, 1.4]].forEach(([x, z]) => { cyl(0.55, 0.55, 0.6, woodM, x, 0.3, z); [[0, 1.0, 0, 0.42], [0.25, 1.25, 0.1, 0.3], [-0.2, 1.2, -0.15, 0.32]].forEach(([a, b, c, r]) => sphere(r, leafM, x + a, b, z + c)); block(x, z, 1.2, 1.2); });
+  [3, 7, 11].forEach(x => windowAt('n', x)); [4, 8.5].forEach(z => windowAt('e', z, 2.2));
+  cyl(1.1, 1.0, 0.42, 0x3a3d40, 7.4, 0.21, 6.4); cyl(1.15, 1.15, 0.1, terracotta, 7.4, 0.47, 6.4); cyl(0.45, 0.4, 0.5, woodM, 7.4, 0.77, 6.4);
+  [[0, 1.4, 0, 0.5], [0.3, 1.75, 0.15, 0.35], [-0.28, 1.7, -0.12, 0.36], [0.05, 2.0, -0.2, 0.28]].forEach(([a, b, c, r]) => sphere(r, leafM, 7.4 + a, b, 6.4 + c));
+  block(7.4, 6.4, 2.4, 2.4);
+  [[3.2, 10.0], [12.4, 10.0], [13.8, 3.6]].forEach(([x, z]) => { cyl(0.3, 0.3, 0.04, 0xffffff, x, 0.55, z); cyl(0.03, 0.03, 0.55, 0xffffff, x, 0.27, z, null, 8); block(x, z, 0.6, 0.6); });
+  box(0.06, 1.0, 1.7, 0x1b1f22, W - 0.18, 2.5, 6.2); box(0.02, 0.88, 1.58, new THREE.MeshBasicMaterial({ color: 0x9cc4e8 }), W - 0.22, 2.5, 6.2);
+  const patient3 = npc({ shirt: 0xf1b6c2, pants: 0x3a3a48, hair: 0x2b1a12, female: true }, 9.2, D - 0.7, Math.PI); patient3.group.position.y = 0.3; patient3.group.scale.setScalar(0.92);
+  addSign(makeSign('Phòng chờ', '20 năm Thúy Đức'), 7.4, 3.2, 6.4);
+  // giá vẽ bảng giá
+  [[-0.25, 0.15], [0.25, 0.15], [0, -0.3]].forEach(([dx, dz]) => { const l = box(0.05, 1.7, 0.05, 0xc89b6a, -1.4 + dx, 0.85, 3.4 + dz); l.rotation.x = dz < 0 ? -0.2 : 0.1; });
+  const poster = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.1), new THREE.MeshBasicMaterial({ map: canvasTex(256, 352, (x) => {
+    x.fillStyle = '#eef6ff'; x.fillRect(0, 0, 256, 352); x.fillStyle = '#2a6fc4'; x.fillRect(0, 0, 256, 70);
+    x.fillStyle = '#fff'; x.font = '800 30px sans-serif'; x.textAlign = 'center'; x.fillText('BẢNG GIÁ', 128, 46);
+    x.fillStyle = '#f4d03f'; x.fillRect(40, 110, 176, 150); x.fillStyle = '#0E2A33'; x.font = '600 20px sans-serif'; x.fillText('Ưu đãi 2026', 128, 300);
+  }) }));
+  poster.position.set(-1.4, 1.3, 3.55); put(poster); block(-1.4, 3.4, 0.9, 0.7);
+  addSign(makeSign('Bảng giá', 'Dịch vụ 2026'), -1.4, 2.6, 3.4);
+
+  // --- Dãy phòng phía sau, ngăn bằng vách ---
+  wallX(-4.5, -W, -9, [[-11.7, -10.2]], 'solid');      // X-quang
+  wallZ(-9, -D, -4.5, [], 'solid');
+  wallX(-4.5, -9, -4, [[-7.2, -5.8]], 'solid');         // phòng bé (cửa vòm)
+  wallZ(-4, -D, -4.5, [], 'solid');
+  wallX(-4.5, -4, W, [[1.0, 2.6]], 'glass', 'dots');    // phòng điều trị vách kính
+  // X-quang: máy chụp toàn cảnh/CT, bàn máy tính
+  box(1.4, 0.1, 1.4, 0xe3e6e8, -13, 0.05, -10.4); box(0.4, 2.3, 0.4, 0xffffff, -13, 1.15, -11.3);
+  box(1.7, 0.26, 0.45, 0xffffff, -13, 2.0, -10.9); box(0.22, 0.6, 0.3, 0xffffff, -13.75, 1.65, -10.9); box(0.22, 0.6, 0.3, 0x2c3236, -12.25, 1.65, -10.9);
+  box(0.9, 0.12, 0.12, 0xffffff, -14.2, 1.85, -10.7); box(0.25, 0.3, 0.04, 0x9cc4e8, -12.6, 1.3, -11.08);
+  block(-13, -10.8, 2.0, 1.6);
+  box(0.7, 0.75, 1.4, 0xffffff, -W + 0.5, 0.375, -7); box(0.04, 0.4, 0.6, 0x22313a, -W + 0.4, 1.0, -7); block(-W + 0.5, -7, 0.9, 1.6);
+  const apron = box(0.6, 0.9, 0.05, 0x2f55c8, -9.3, 1.6, -9); apron.rotation.y = Math.PI / 2;
+  addSign(makeSign('X-quang', 'Vatech Pax-i · CT'), -12.5, 3.2, -8);
+  // Phòng bé: khung vòm gỗ, tranh tường lá, ghế đệm cam, bàn hình mây
+  { const ar = new THREE.Mesh(new THREE.ExtrudeGeometry(ringShape(1.4, 2.7, 0.7, 0.12), { depth: 0.3, bevelEnabled: false, curveSegments: 24 }), mat(0xc89b6a, { roughness: 0.5 })); ar.position.set(-6.5, 0, -4.65); put(ar); }
+  const mural = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 3.2), new THREE.MeshBasicMaterial({ map: canvasTex(512, 360, (x) => {
+    x.fillStyle = '#fbfaf6'; x.fillRect(0, 0, 512, 360);
+    for (let i = 0; i < 120; i++) { x.fillStyle = ['#7fb77e', '#9fc6a0', '#8f7fc4', '#b8a9e0', '#5c9e6e'][i % 5]; x.save(); x.translate((i * 97) % 512, 20 + (i * 41) % 200); x.rotate(i); x.beginPath(); x.ellipse(0, 0, 16, 6, 0, 0, Math.PI * 2); x.fill(); x.restore(); }
+  }) }));
+  mural.position.set(-6.5, 2.1, -D + 0.17); put(mural);
+  box(0.6, 0.45, 4.5, 0xffffff, -8.55, 0.225, -9.2); box(0.6, 0.12, 4.5, leatherOrange, -8.55, 0.51, -9.2); block(-8.55, -9.2, 0.7, 4.6);
+  box(3.0, 0.45, 0.6, 0xffffff, -6.0, 0.225, -11.5); box(3.0, 0.12, 0.6, leatherOrange, -6.0, 0.51, -11.5); block(-6.0, -11.5, 3.2, 0.7);
+  [[0, 0], [0.18, 0.1], [-0.16, 0.12], [0.05, -0.17]].forEach(([dx, dz]) => cyl(0.2, 0.2, 0.04, 0xffffff, -6.3 + dx, 0.55, -8.8 + dz));
+  cyl(0.03, 0.03, 0.55, 0xffffff, -6.3, 0.27, -8.8, null, 8); block(-6.3, -8.8, 0.7, 0.7);
+  const kid3 = npc({ shirt: 0xf3c64e, pants: 0x3a6ea5, hair: 0x2a1a12 }, -5.4, -8.0, -0.6); kid3.group.scale.setScalar(0.75);
+  addSign(makeSign('Thúy Đức Kids', 'Phòng dành cho bé'), -6.5, 3.2, -8);
+  // Phòng điều trị: 4 ghế nha quay ra cửa sổ, ghế cam cho bác sĩ
+  [0, 4, 8, 12].forEach(x => { dentalChair(x, -9.2, Math.PI); stool(x + 1.1, -8.0); windowAt('s', x, 2.4); });
+  box(1.6, 0.85, 0.5, 0xffffff, -2.6, 0.425, -11.6); box(0.5, 0.35, 0.04, 0x22313a, -2.6, 1.2, -11.7); block(-2.6, -11.6, 1.7, 0.6);
+  const doc3 = npc({ shirt: 0x1f2f5c, pants: 0x1f2f5c, hair: 0x1f1a17, mask: true }, 5.3, -7.6, 2.6);
+  npc({ shirt: 0xe8d9c4, pants: 0x1f2f5c, hair: 0x2b1a12, female: true, mask: true }, 9.2, -7.8, 3.4);
+  addSign(makeSign('Ghế nha', 'Nha khoa tổng quát'), 6, 3.3, -8);
+
+  /* ==================================================================
+     TẦNG 4: lễ tân Invisalign, tường hộp khay, phòng chờ VIP, hành lang đèn đỏ, phòng tư vấn & phòng Invisalign
+     ================================================================== */
+  newFloor(4);
+  shell(canvasTex(1024, 768, (fx) => {
+    fx.fillStyle = '#6c7073'; fx.fillRect(0, 0, 1024, 768); // thảm xám hoa văn
+    for (let i = 0; i < 2600; i++) { fx.fillStyle = i % 3 ? 'rgba(160,165,168,.2)' : 'rgba(40,44,48,.2)'; const x = Math.random() * 1024, y = Math.random() * 768; fx.fillRect(x, y, 8 + (i % 4) * 4, 3); fx.fillRect(x + 6, y + 6, 3, 6 + (i % 3) * 4); }
+    fx.fillStyle = '#a7a9aa'; { const [a, b] = P(-4.5, -12), [c, d] = P(16, -4.5); fx.fillRect(a, b, c - a, d - b); }
+    speckle(fx, 4000);
+  }));
+  elevator();
+  downlights((x, z) => Math.hypot(x + 7.5, z - 4.6) < 3);
+  // Trần cánh hoa phát sáng trên quầy
+  {
+    const leaf = (L, Wd) => { const s = new THREE.Shape(); s.moveTo(0, 0); s.quadraticCurveTo(Wd, L / 2, 0, L); s.quadraticCurveTo(-Wd, L / 2, 0, 0); return s; };
+    [[-0.3, 2.2], [1.2, 1.9], [2.6, 2.1], [4.1, 1.7], [5.4, 2.0]].forEach(([a, L]) => {
+      [[leaf(L + 0.25, 0.75), 0x4a2a4f, CEIL - 0.015], [leaf(L, 0.55), 0xd4e8ff, CEIL - 0.03]].forEach(([shape, col, y]) => {
+        const g = new THREE.ShapeGeometry(shape, 16); g.rotateZ(a); g.translate(0.15, 0, 0); g.rotateX(Math.PI / 2);
+        const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide })); m.position.set(-7.5, y, 4.6); put(m);
+      });
+    });
+  }
+  // --- Lễ tân tầng 4 ---
+  box(5, CEIL, 0.3, wallM, -7.5, CEIL / 2, 2.0).castShadow = false; block(-7.5, 2.0, 5, 0.35);
+  box(0.8, CEIL, 0.5, mat(0x8a8f99, { roughness: 1 }), -10.4, CEIL / 2, 2.1).castShadow = false; block(-10.4, 2.1, 0.8, 0.5);
+  const logo4 = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.3), new THREE.MeshStandardMaterial({ map: logoTex(), emissive: 0xffffff, emissiveMap: logoTex(), emissiveIntensity: 0.3, roughness: 0.9 }));
+  logo4.position.set(-7.5, 2.4, 2.16); put(logo4);
+  curvedDesk(-7.5, 0.5, 2.7, 3.2, 0.55, 0xc9c9c9);
+  block(-7.5, 3.45, 3.4, 1.0);
+  box(0.6, 0.42, 0.04, 0xe9e9e9, -6.8, 1.3, 3.0);
+  sphere(0.18, 0x5bc84b, -8.6, 1.25, 3.2); sphere(0.1, 0x5bc84b, -8.6, 1.5, 3.2);
+  [[-8.95, 3.35, 0x3d6db5], [-8.95, 3.35, 0xf4d03f]].forEach(([x, z, c], i) => box(0.3, 0.2, 0.36, c, x, 1.15 + i * 0.2, z));
+  cyl(0.22, 0.2, 0.08, 0x6b4a32, -9.6, 0.8, 4.6); box(0.05, 0.8, 0.05, 0x6b4a32, -9.6, 0.4, 4.6); block(-9.6, 4.6, 0.5, 0.5);
+  const rec4 = npc({ shirt: 0x1f2f5c, pants: 0x1f2f5c, hair: 0x2b1a12, female: true, scarf: true }, -7.5, 2.75, 0);
+  addSign(makeSign('Lễ tân tầng 4', 'Invisalign · tư vấn'), -7.5, 3.2, 4.4);
+  // Tường hộp khay Invisalign (tường trái)
+  const boxWall = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 3.4), new THREE.MeshStandardMaterial({ map: canvasTex(560, 340, (x) => {
+    x.fillStyle = '#ffffff'; x.fillRect(0, 0, 560, 340);
+    for (let r = 0; r < 12; r++) for (let c = 0; c < 16; c++) {
+      const X = 6 + c * 34.6, Y = 6 + r * 27.5; x.fillStyle = '#3fa9e0'; x.fillRect(X, Y, 31, 23);
+      x.fillStyle = (r * 7 + c * 3) % 9 === 0 ? '#f4d03f' : '#ffffff'; x.fillRect(X + 4, Y + 6, 18, 9);
+    }
+  }), roughness: 0.6 }));
+  boxWall.position.set(-W + 0.17, 1.9, 2.6); boxWall.rotation.y = Math.PI / 2; put(boxWall);
+  box(0.4, 0.45, 0.4, 0x2a2a2a, -W + 1.0, 0.225, 4.6); block(-W + 1.0, 4.6, 0.5, 0.5);
+  addSign(makeSign('Khay Invisalign', 'Công nghệ iTero'), -W + 1.2, 3.2, 2.6);
+  // Kệ trưng bày giải thưởng + mô hình răng 16 trước tường lam sọc viền đỏ
+  { const fw = new THREE.Mesh(new THREE.PlaneGeometry(4.0, CEIL - 0.2), new THREE.MeshStandardMaterial({ map: flutedTex(), roughness: 0.8 })); fw.material.map.repeat.set(16, 1); fw.position.set(-2.4, (CEIL - 0.2) / 2, 2.17); put(fw); }
+  box(4.4, CEIL, 0.3, wallM, -2.4, CEIL / 2, 2.0).castShadow = false; block(-2.4, 2.0, 4.4, 0.35);
+  box(4.0, 0.06, 0.06, new THREE.MeshBasicMaterial({ color: 0xff4d5e }), -2.4, CEIL - 0.12, 2.22);
+  box(2.2, 0.85, 0.5, 0xffffff, -2.4, 0.425, 2.5); [-3.3, -1.5].forEach(x => cyl(0.04, 0.04, 0.4, 0xffffff, x, 0.2, 2.6, null, 8));
+  [[-3.1, 0x9fb7c9], [-2.8, 0xd4af37], [-1.7, 0xe6e9ec], [-1.5, 0x2c6fb0]].forEach(([x, c]) => box(0.16, 0.3, 0.05, c, x, 1.0, 2.45));
+  const tooth = makeTooth(); tooth.scale.setScalar(0.18); tooth.position.set(-2.4, 1.18, 2.5); put(tooth);
+  block(-2.4, 2.5, 2.4, 0.7);
+  addSign(makeSign('Răng 16', 'Bản đồ răng FDI'), -2.4, 2.9, 2.6);
+
+  // --- Phòng chờ VIP: 2 hốc vòm, sofa cong trắng gối đỏ, ghế nhung đỏ, cột có kệ sách tròn ---
+  wallX(0.2, 2.0, W, [], 'solid');
+  [6, 11].forEach(x => { niche(x, 0.28, 0); curvedSofa(x, 3.1, 1.55, 2.25, Math.PI / 2 - 0.9, Math.PI / 2 + 0.9, [Math.PI / 2 - 0.55, Math.PI / 2, Math.PI / 2 + 0.55]); block(x, 1.4, 3.8, 1.6); marbleTable(x, 2.8, 0.5); });
+  const velvet = mat(0x8e1830, { roughness: 0.9 });
+  [[8.5, 5.0, 0.4], [13.8, 6.4, -1.2], [13.3, 8.3, -1.9]].forEach(([x, z, r]) => {
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = r; put(g);
+    const tub = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.45, 0.8, 24, 1, true, Math.PI * 0.15, Math.PI * 1.7), velvet); tub.position.y = 0.4; tub.material.side = THREE.DoubleSide; tub.castShadow = true; g.add(tub);
+    const seatC = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 0.18, 24), velvet); seatC.position.y = 0.38; g.add(seatC);
+    block(x, z, 1.0, 1.0);
+  });
+  [5, 9, 13].forEach(x => { windowAt('n', x, 2.2); [-1.35, 1.35].forEach(dx => box(0.5, 3.6, 0.12, 0xd8ccb8, x + dx, 1.85, D - 0.25)); });
+  windowAt('e', 4.5, 2.2);
+  box(0.08, 1.0, 1.8, 0x1b1f22, W - 0.6, 1.5, 9.6); box(0.02, 0.9, 1.7, new THREE.MeshBasicMaterial({ color: 0x8fb5e0 }), W - 0.65, 1.5, 9.6);
+  box(0.4, 0.8, 0.06, 0x2a2a2a, W - 0.55, 0.4, 9.6); block(W - 0.55, 9.6, 0.6, 2.0);
+  cyl(0.42, 0.42, CEIL, 0xf2efea, 0.8, CEIL / 2, 6.6).castShadow = false;
+  [0.08, 0.5, 0.92].forEach(y => cyl(0.95, 0.95, 0.05, 0x7a5236, 0.8, y, 6.6));
+  for (let i = 0; i < 14; i++) { const a = i * 0.45; box(0.07, 0.3, 0.2, [0x2c6fb0, 0xe2553d, 0xf2a33a, 0xffffff][i % 4], 0.8 + Math.cos(a) * 0.7, i % 2 ? 0.27 : 0.69, 6.6 + Math.sin(a) * 0.7).rotation.y = -a; }
+  block(0.8, 6.6, 2.0, 2.0);
+  {
+    const blob = new THREE.Shape(); for (let i = 0; i <= 48; i++) { const a = i / 48 * Math.PI * 2, r = 2.0 + 0.45 * Math.sin(a * 3) + 0.25 * Math.cos(a * 5); blob[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); }
+    const bg = new THREE.ExtrudeGeometry(blob, { depth: 0.18, bevelEnabled: false }); bg.rotateX(Math.PI / 2);
+    const cl = new THREE.Mesh(bg, mat(0x9a2433, { roughness: 0.8 })); cl.position.set(0.8, CEIL, 6.6); put(cl);
+  }
+  globes(0.8, 8.6, 3, 0.6, 2.8, 3.2);
+  [-0.6, 2.2].forEach(x => { cyl(0.04, 0.04, 1.0, 0xd4af37, x, 0.5, 8.6, null, 8); sphere(0.07, 0xd4af37, x, 1.04, 8.6); cyl(0.18, 0.18, 0.04, 0xd4af37, x, 0.02, 8.6); block(x, 8.6, 0.35, 0.35); });
+  { const rope = new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-0.6, 0.95, 8.6), new THREE.Vector3(0.8, 0.6, 8.6), new THREE.Vector3(2.2, 0.95, 8.6)), 20, 0.03, 6), mat(0xc8202f)); put(rope); }
+  [[3.1, 1.9], [3.3, 2.8]].forEach(([x, z]) => { cyl(0.3, 0.3, 0.45, 0xb5532f, x, 0.225, z); block(x, z, 0.65, 0.65); });
+  const guest4 = npc({ shirt: 0x2c3e66, pants: 0x2c3e66, hair: 0x1f1a17, female: true }, 12.4, 5.0, -2.4);
+  addSign(makeSign('Phòng chờ VIP', 'Thúy Đức Premium'), 8.5, 3.3, 3.2);
+
+  // --- Hành lang đèn đỏ, bảng chỉ dẫn, dãy phòng ---
+  [-0.35, -4.35].forEach(z => box(20.5, 0.05, 0.1, new THREE.MeshBasicMaterial({ color: 0xff4d5e }), 5.75, CEIL - 0.05, z));
+  wallX(-4.5, -W, -4.5, [], 'solid');
+  const wayfind = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.8), new THREE.MeshBasicMaterial({ map: canvasTex(560, 240, (x) => {
+    x.fillStyle = '#f4f1ec'; x.fillRect(0, 0, 560, 240); x.fillStyle = '#b8323f'; x.textAlign = 'right'; x.font = '700 26px "Be Vietnam Pro", sans-serif';
+    ['PHÒNG TƯ VẤN  ›', 'PHÒNG BS. ĐỨC  ›', 'PHÒNG INVISALIGN 1  ›', 'PHÒNG INVISALIGN 2  ›', 'PHÒNG INVISALIGN 3  ›'].forEach((t, i) => x.fillText(t, 540, 40 + i * 44));
+  }) }));
+  wayfind.position.set(-8, 2.2, -4.42); put(wayfind);
+  addSign(makeSign('Đội ngũ bác sĩ', '11 bác sĩ chuyên khoa'), -10.5, 3.3, -3.4);
+  wallZ(-4.5, -D, -4.5, [], 'solid');
+  wallX(-4.5, -4.5, 3.5, [[-1.2, 0.3]], 'glass', 'flowers');
+  wallZ(3.5, -D, -4.5, [], 'glass', 'flowers');
+  wallX(-4.5, 3.5, 9.5, [[5.6, 7.1]], 'glass', 'flowers');
+  wallZ(9.5, -D, -4.5, [], 'glass', 'flowers');
+  wallX(-4.5, 9.5, W, [[11.8, 13.3]], 'glass', 'flowers');
+  // Phòng tư vấn: gương vòm viền hồng san hô, bàn trắng vách hoa, ghế kem, đèn cầu
+  [-2.9, -0.4, 2.1].forEach(x => {
+    const ring = new THREE.Mesh(new THREE.ShapeGeometry(ringShape(1.5, 2.9, 0.75, 0.22), 24), new THREE.MeshBasicMaterial({ color: 0xf08a6e })); ring.position.set(x, 0.0, -D + 0.17); put(ring);
+    const mir = new THREE.Mesh(new THREE.ShapeGeometry(archShape(1.5, 2.9, 0.75), 24), mat(0xdfe8eb, { metalness: 0.9, roughness: 0.08 })); mir.position.set(x, 0.0, -D + 0.16); put(mir);
+    box(1.6, 0.8, 0.6, 0xffffff, x, 0.4, -D + 0.6); block(x, -D + 0.6, 1.7, 0.7);
+    const ch = new THREE.Group(); ch.position.set(x, 0, -10.1); put(ch);
+    box(0.55, 0.12, 0.5, 0xeee4d6, 0, 0.48, 0, ch); box(0.55, 0.45, 0.1, 0xeee4d6, 0, 0.75, 0.24, ch); [-0.22, 0.22].forEach(a => [-0.2, 0.2].forEach(b => box(0.04, 0.45, 0.04, 0x6b4a32, a, 0.22, b, ch))); block(x, -10.1, 0.6, 0.6);
+    globes(x, -10.8, 2, 0.25, 2.6, 3.1);
+  });
+  [-1.65, 0.85].forEach(x => { const pn = box(0.05, 0.9, 0.6, 0xffffff, x, 1.25, -D + 0.6); });
+  const consultant = npc({ shirt: 0x1f2f5c, pants: 0x1f2f5c, hair: 0x2b1a12, female: true, scarf: true }, 0.9, -9.4, -1.2);
+  addSign(makeSign('Phòng tư vấn', 'Quy trình 4 bước'), -0.4, 3.3, -8);
+  // Phòng Invisalign 1 & phòng BS. Đức
+  dentalChair(6.5, -9.3, Math.PI); stool(7.6, -8.1); windowAt('s', 6.5, 2.4);
+  dentalChair(12.7, -9.3, Math.PI); stool(13.8, -8.1); windowAt('s', 12.7, 2.4);
+  box(1.4, 0.85, 0.5, 0xffffff, 4.6, 0.425, -11.6); box(1.4, 0.85, 0.5, 0xffffff, 15.0, 0.425, -11.6); block(4.6, -11.6, 1.5, 0.6); block(15.0, -11.6, 1.5, 0.6);
+  const docDuc = npc({ shirt: 0x1f2f5c, pants: 0x1f2f5c, hair: 0x1f1a17, coat: true }, 14.1, -7.5, 2.7);
+  addSign(makeSign('Phòng BS. Đức', 'Invisalign · phục hình'), 12.7, 3.3, -7.5);
+
+  /* ================= Nội dung từng khu ================= */
+  const items = arr => arr.map(([t, d], i) => `<div class="item"><span class="n">${i + 1}</span><div><b>${t}</b><p>${d}</p></div></div>`).join('');
+  const years = arr => arr.map(([y, t, d]) => `<div class="item"><span class="n y">${y}</span><div><b>${t}</b><p>${d}</p></div></div>`).join('');
+  const table = (title, rows, note) => `<div class="tbl"><table><caption>${title}</caption><tbody>${rows.map(([a, b, c]) => `<tr><td>${a}</td><td class="num">${b}</td><td class="nt">${c || ''}</td></tr>`).join('')}</tbody></table></div>${note ? `<p class="todo">${note}</p>` : ''}`;
+  const SITE = 'https://nhakhoathuyduc.com.vn/';
+  const contact = () => `<dl class="info">
+      <dt>Hotline</dt><dd><b>033 609 3366</b></dd><dt>Email</dt><dd>cskh@thuyduc.com.vn</dd>
+      <dt>Giờ mở cửa</dt><dd>08:00 – 18:30, Thứ Hai – Chủ Nhật</dd>
+      <dt>Cơ sở 1</dt><dd>Số 64 Phố Vọng, phường Bạch Mai, Hà Nội</dd>
+      <dt>Cơ sở 2</dt><dd>Thúy Đức Premium: 257 Giải Phóng (tầng 3, 4, 5 tòa GP Building), phường Bạch Mai, Hà Nội</dd></dl>
+    <form class="form" id="bk" novalidate>
+      <label>Họ và tên<input id="bk-name" autocomplete="name" placeholder="Nguyễn Văn A"></label>
+      <label>Số điện thoại<input id="bk-phone" type="tel" autocomplete="tel" placeholder="09xx xxx xxx"></label>
+      <label class="full">Dịch vụ cần tư vấn<select id="bk-svc">
+        <option>Niềng răng mắc cài</option><option>Niềng răng trong suốt Invisalign</option><option>Niềng răng Essentials by Invisalign</option>
+        <option>Niềng răng Invisalign First (trẻ em)</option><option>Cấy ghép Implant</option><option>Bọc răng sứ</option>
+        <option>Tẩy trắng răng</option><option>Điều trị nội nha</option></select></label>
+      <button class="btn full" type="submit">Đăng ký tư vấn miễn phí</button>
+      <p class="ok full" id="bk-ok" hidden></p>
+    </form>
+    <p class="todo">Form trong bản 3D này chưa nối với hệ thống của phòng khám. Để đặt lịch thật, gọi hotline hoặc vào <a href="${SITE}" target="_blank" rel="noopener">nhakhoathuyduc.com.vn</a>.</p>`;
+  const lift = n => `<p class="lead">Bạn đang ở tầng ${n}. Chọn tầng muốn đến.</p>
+    <div class="lift"><button class="btn${n === 3 ? ' soft' : ''}" type="button" data-floor="3" ${n === 3 ? 'disabled' : ''}>Tầng 3<small>Lễ tân · chờ · X-quang · điều trị</small></button>
+    <button class="btn${n === 4 ? ' soft' : ''}" type="button" data-floor="4" ${n === 4 ? 'disabled' : ''}>Tầng 4<small>Invisalign · VIP · tư vấn</small></button></div>`;
+  const z3 = floors[3].zones, z4 = floors[4].zones;
+  z3.push(
+    { name: 'Thang máy', sub: 'Lên tầng 4', pos: [-13.6, 8], body: () => lift(3) },
+    { name: 'Lễ tân', sub: 'Đặt lịch · liên hệ', pos: [-7, 3.9], npc: rec3, role: 'Lễ tân', say: 'Chào bạn! Thúy Đức mở cửa 08:00 – 18:30 tất cả các ngày trong tuần.', body: contact },
+    { name: 'Phòng chờ', sub: '20 năm Thúy Đức', pos: [4.9, 8.6], body: () => `<p class="lead">Chuyên sâu để tạo nên khác biệt. Hành trình chăm sóc nụ cười từ năm 2006 đến nay.</p>` + years([
+      ['2006', 'Thành lập', 'TS. Phạm Văn Việt, nguyên quyền trưởng khoa Răng Hàm Mặt bệnh viện Hữu Nghị Việt Xô, thành lập Nha khoa Thúy Đức.'],
+      ['2015', 'Chuyên gia chỉnh nha', 'BS Phạm Hồng Đức nhận chứng chỉ AAO (Hiệp hội Chỉnh nha Hoa Kỳ) và là thành viên WFO.'],
+      ['2019', 'iTero Element 5D', 'Thúy Đức có máy quét dấu răng iTero Element 5D tại Việt Nam và Đông Nam Á.'],
+      ['2022', 'Black Diamond', 'BS Phạm Hồng Đức đạt danh hiệu Black Diamond Provider của Invisalign.'],
+      ['2024', 'Cơ sở 2 & Red Diamond', 'Khai trương cơ sở 257 Giải Phóng, đưa iTero Lumina về Việt Nam, BS Đức đạt Invisalign Red Diamond Provider 2024.']]) },
+    { name: 'Bảng giá', sub: 'Dịch vụ 2026', pos: [-1.4, 4.9], body: () => `<p class="lead">Giá theo bảng giá công bố trên website của phòng khám. Đơn vị: đồng.</p>` +
+      table('Niềng răng Invisalign', [['Invisalign (giá ưu đãi)', '39.000.000 – 105.000.000', 'Gồm minivis, nhổ răng chỉnh nha']]) +
+      table('Niềng răng mắc cài', [['Mắc cài Mini Diamond', '27.900.000 – 35.000.000'], ['Mắc cài sứ Symetri Clear', '37.900.000 – 45.000.000'], ['Damon Q (kim loại tự động)', '37.900.000 – 47.900.000'], ['Damon Ultima', '45.000.000 – 52.000.000'], ['Damon Clear 2', '47.900.000 – 55.000.000']]) +
+      table('Cấy ghép Implant (1 răng)', [['Dio', '18.000.000', 'BH 15 năm'], ['Dentium', '19.000.000', 'BH 15 năm'], ['Cowel', '22.000.000', 'BH 15 năm'], ['ETK', '26.000.000', 'BH 25 năm'], ['SIC', '27.000.000', 'BH 25 năm'], ['Neodent', '28.000.000', 'BH 25 năm'], ['Straumann', '30.000.000', 'BH 25 năm'], ['Straumann SLActive', '35.000.000', 'BH 25 năm']]) +
+      table('Bọc răng sứ (1 răng)', [['Titan', '3.000.000', 'BH 2 năm'], ['Cr-Co', '3.000.000 – 4.000.000'], ['Venus', '4.000.000', 'BH 5 năm'], ['Ceramill', '6.000.000', 'BH 10 năm'], ['Cercon', '6.000.000 – 7.000.000', 'BH 15 năm'], ['Lava', '7.000.000', 'BH 15 năm'], ['Emax', '8.000.000', 'BH 10 năm'], ['Lisi', '8.000.000', 'BH 15 năm'], ['Nacera', '10.000.000', 'BH 10 năm'], ['Orodent', '12.000.000', 'BH 10 năm']]) +
+      table('Nhổ răng khôn (1 răng)', [['Răng 8 hàm trên', '1.500.000'], ['Răng 8 hàm dưới', '2.500.000'], ['Răng 8 hàm trên (nhổ máy)', '2.000.000'], ['Răng 8 hàm dưới (nhổ máy)', '3.000.000']]) +
+      table('Nội nha, nha chu', [['Hàn răng vĩnh viễn', '300.000 – 1.250.000', 'BH 6 tháng'], ['Điều trị tủy', '3.000.000 – 5.000.000'], ['Trám bít hố rãnh', '350.000'], ['Xử lý hủy khoáng Icon', '2.000.000'], ['Lấy cao răng', '400.000 – 600.000'], ['Làm sạch ABC Airstream', '1.000.000 – 1.500.000'], ['Điều trị nha chu', '1.000.000 – 2.000.000', '1 răng']], 'Giá có thể thay đổi. Xem bảng giá mới nhất trên nhakhoathuyduc.com.vn.') },
+    { name: 'X-quang', sub: 'Chụp phim chẩn đoán', pos: [-12.4, -6.6], body: () => items([
+      ['X-quang Vatech Pax-i', 'Chụp phim Panorama thấy cả hai hàm trong một tấm, dùng để xem răng khôn, tiêu xương, lên kế hoạch niềng.'],
+      ['Phim CT', 'Ảnh 3D xương hàm, cần khi cấy Implant để đo chiều cao và độ dày xương.'],
+      ['An toàn khi chụp', 'Khách mặc áo chì che chắn trong lúc chụp.']]) },
+    { name: 'Thúy Đức Kids', sub: 'Phòng dành cho bé', pos: [-6.5, -6.4], body: () => `<p class="lead">Không gian nha khoa dành riêng cho bé. Đội ngũ có TS.BS Lương Minh Hằng, giảng viên bộ môn Nha khoa Trẻ em, Đại học Y Hà Nội.</p>` +
+      table('Dịch vụ răng trẻ em (1 răng)', [['Nhổ răng sữa bôi tê', '50.000'], ['Nhổ răng sữa tiêm tê', '100.000'], ['Bôi SDF chống sâu răng', '50.000'], ['Hàn răng sữa', '350.000'], ['Bôi vecni fluor (2 hàm)', '500.000'], ['Chụp thép trẻ em', '800.000'], ['Điều trị tủy răng sữa', '1.000.000 – 1.200.000']]) +
+      items([['Invisalign First', 'Chỉnh nha sớm bằng khay trong suốt, giúp định hình cung hàm cho trẻ.']]) },
+    { name: 'Ghế nha', sub: 'Nha khoa tổng quát', pos: [1.8, -6.4], npc: doc3, role: 'Bác sĩ', say: 'Mời bạn vào ghế, bác sĩ kiểm tra răng cho nhé.', body: () => items([
+      ['Điều trị tủy (nội nha)', 'Kính hiển vi Zumax 2380R2 phóng đại ống tủy, máy EndoMatic định vị chóp răng.'],
+      ['Điều trị nha chu', 'Làm sạch túi nướu, điều trị viêm nha chu theo từng răng.'],
+      ['Làm sạch chuyên sâu', 'Lấy cao răng và mảng bám với quy trình 10 bước, công nghệ ABC Airstream Biofilm Clearance.'],
+      ['Nhổ răng khôn', 'Máy Piezotome dùng sóng siêu âm cao tần: ít đau, ít sang chấn, nhanh lành.'],
+      ['Hàn răng', 'Hàn răng vĩnh viễn, trám bít hố rãnh, xử lý hủy khoáng Icon.']]) }
+  );
+  z4.push(
+    { name: 'Thang máy', sub: 'Xuống tầng 3', pos: [-13.6, 8], body: () => lift(4) },
+    { name: 'Lễ tân tầng 4', sub: 'Đặt lịch · liên hệ', pos: [-7.5, 5.3], npc: rec4, role: 'Lễ tân', say: 'Chào mừng bạn đến tầng Invisalign của Thúy Đức Premium!', body: contact },
+    { name: 'Khay Invisalign', sub: 'Công nghệ iTero', pos: [-13.8, 2.6], body: () => `<p class="lead">Mỗi hộp trên tường là bộ khay niềng của một khách hàng đang điều trị.</p>` + items([
+      ['iTero Lumina (2024)', 'Máy quét dấu răng thế hệ mới: đầu quét nhỏ hơn 50%, phổ quét gấp 3, tốc độ xử lý gấp 2.'],
+      ['iTero 5D Plus', 'Lấy dấu răng kỹ thuật số trong khoảng 60 giây, công nghệ NIRI phát hiện sâu kẽ răng.'],
+      ['iTero Element 5D', 'Xem trước kết quả niềng 3D qua ClinCheck, không dùng tia bức xạ.']]) },
+    { name: 'Răng 16', sub: 'Bản đồ răng FDI', pos: [-2.4, 3.9], body: () => `<p class="lead">Nha sĩ đánh số răng theo chuẩn FDI: chữ số đầu là phần hàm, chữ số sau là vị trí tính từ răng cửa giữa.</p>` + items([
+      ['Phần hàm 1 – 4', '1 hàm trên phải, 2 hàm trên trái, 3 hàm dưới trái, 4 hàm dưới phải.'],
+      ['Vị trí 1 – 8', '1–2 răng cửa, 3 răng nanh, 4–5 răng hàm nhỏ, 6–7 răng hàm lớn, 8 răng khôn.'],
+      ['Vậy 16 là gì?', 'Răng hàm lớn thứ nhất hàm trên bên phải, còn gọi là răng 6 tuổi. Mặt nhai nhiều rãnh nên rất dễ sâu.']]) },
+    { name: 'Phòng chờ VIP', sub: 'Thúy Đức Premium', pos: [9.6, 6.8], body: () => `<p class="lead">“Nụ cười đều, đẹp rạng ngời sẽ truyền cảm hứng tích cực cho bạn.” Bốn tiêu chuẩn của Thúy Đức Premium:</p>` +
+      `<div class="quad"><div><b>Vô trùng</b><span>Xử lý dụng cụ khép kín</span></div><div><b>Chuyên sâu</b><span>Bác sĩ giàu kinh nghiệm</span></div><div><b>Hiện đại</b><span>Bệnh án số hóa 100%</span></div><div><b>Tận tâm</b><span>Chăm sóc khách hàng văn minh</span></div></div>` },
+    { name: 'Đội ngũ bác sĩ', sub: '11 bác sĩ chuyên khoa', pos: [-9.5, -2.8], body: () => `<p class="lead">Bác sĩ chuyên khoa Răng Hàm Mặt, phần lớn tốt nghiệp Đại học Y Hà Nội.</p>` + items([
+      ['BS Phạm Hồng Đức', 'Invisalign Red Diamond Provider 2024, giảng viên Align Faculty, thành viên AAO, cao học Việt – Pháp ĐH Bordeaux.'],
+      ['TS.BS Lương Minh Hằng', 'Tiến sĩ Răng Hàm Mặt (2023), giảng viên bộ môn Nha khoa Trẻ em, ĐH Y Hà Nội.'],
+      ['TS.BS Nguyễn An Nghĩa', 'Tiến sĩ Nha khoa (2024), bác sĩ nội trú, giảng viên khoa Răng Hàm Mặt ĐH Y Hà Nội.'],
+      ['BS Nguyễn Phương Nga', 'Hơn 8 năm kinh nghiệm, chuyên sâu Nội nha – Phục hồi và Nha chu.'],
+      ['BS Nguyễn Thị Thanh Huyền', 'Chỉnh nha: các khóa MSE Micro-Implant, TOGO, BOS Biomechanics.'],
+      ['BS Hoàng Hải Yến', 'Chỉnh hình răng mặt, nội nha lâm sàng, phục hình xâm lấn tối thiểu.'],
+      ['BS Nguyễn Thanh Tuấn', 'Implant nha khoa, Veneer nâng cao, nha chu chuyên sâu.'],
+      ['BS Lê Thị Thanh Vân', 'Chỉnh hình răng mặt, khóa chỉnh nha Bioprogressive – MEAW.'],
+      ['BS Vũ Thị Thu Hà', 'Cấy ghép và phục hình Implant.'],
+      ['BS Nguyễn Thị Xuân Anh', 'Chỉnh nha, chỉnh hình răng mặt, cơ sinh học chỉnh nha Biomechanics.'],
+      ['BS Trần Minh Hiệp', 'Cấy ghép Implant (Buser Implant Seminar), chỉnh hình răng mặt, mặt dán sứ.']]) },
+    { name: 'Phòng tư vấn', sub: 'Quy trình 4 bước', pos: [-0.45, -6.4], npc: consultant, role: 'Tư vấn viên', say: 'Mời bạn ngồi, mình giải thích phương án trên phim nhé.', body: () => items([
+      ['Tiếp đón', 'Lập hồ sơ, hỏi tiền sử bệnh, thuốc đang dùng và điều bạn đang lo.'],
+      ['Khám & chụp phim', 'Soi từng răng, đo túi nướu, chụp X-quang khi cần để thấy phần dưới nướu.'],
+      ['Lên kế hoạch', 'Bác sĩ chỉ trên phim, nêu từng phương án kèm thời gian và chi phí.'],
+      ['Điều trị & tái khám', 'Làm theo phương án bạn chọn, hẹn tái khám và nhắc lịch cạo vôi 6 tháng.']]) },
+    { name: 'Phòng BS. Đức', sub: 'Invisalign · phục hình', pos: [12.55, -6.4], npc: docDuc, role: 'BS Phạm Hồng Đức', say: 'Chào bạn, mình xem khớp cắn và quét iTero cho bạn nhé.', body: () => items([
+      ['Niềng răng Invisalign', 'Khay trong suốt, do BS Phạm Hồng Đức (Invisalign Red Diamond 2024, giảng viên Align Faculty) điều trị.'],
+      ['Invisalign First, Essentials, IPE', 'Chỉnh nha sớm cho trẻ, gói Invisalign tiết kiệm và nong hàm Invisalign IPE.'],
+      ['Niềng răng mắc cài', 'Mini Diamond, mắc cài sứ Symetri Clear, mắc cài tự động Damon Q, Damon Ultima, Damon Clear 2.'],
+      ['Cấy ghép Implant', 'Hệ thống Dentium ICT, nhiều dòng trụ từ Dio đến Straumann SLActive, bảo hành 15–25 năm.'],
+      ['Bọc răng sứ', 'Từ sứ Titan, Venus đến Emax, Lisi, Lava, Nacera, Orodent.']]) }
+  );
+  // vòng sáng đánh dấu chỗ đứng mỗi khu
+  const ringGeo = new THREE.RingGeometry(0.5, 0.66, 40);
+  [3, 4].forEach(n => floors[n].zones.forEach(z => {
+    z.floor = n;
+    const r = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xd9536f, transparent: true, opacity: 0.55 }));
+    r.rotation.x = -Math.PI / 2; r.position.set(z.pos[0], 0.012, z.pos[1]); floors[n].g.add(r); z.ring = r;
+  }));
+  const marker = new THREE.Mesh(new THREE.RingGeometry(0.18, 0.28, 24), new THREE.MeshBasicMaterial({ color: 0x0f7c86 }));
+  marker.rotation.x = -Math.PI / 2; marker.visible = false; world.add(marker);
+
+  /* ================= Tạo nhân vật ================= */
+  const SHIRTS = [0xd9536f, 0x0f7c86, 0xf3c64e, 0x6b8cff, 0x7fd3c9, 0xffffff];
+  const HAIRS = [0x1f1a17, 0x5a3a24, 0x9b6a3f, 0xd8b26a, 0x7a4b8f];
+  const NAMES = ['Minh Khang', 'Bảo Anh', 'Gia Huy', 'Thảo Vy', 'Đức Anh', 'Ngọc Hân', 'Quốc Bảo', 'Khánh Linh', 'Tuấn Kiệt', 'Mai Chi', 'Hoàng Nam', 'Phương Thảo'];
+  let cfg = { name: NAMES[Math.floor(Math.random() * NAMES.length)], female: false, shirt: SHIRTS[0], hair: HAIRS[0] };
+  try { const s = JSON.parse(localStorage.getItem('tdc-avatar') || 'null'); if (s) cfg = Object.assign(cfg, s); } catch (e) {}
+  const hex = n => '#' + n.toString(16).padStart(6, '0');
+  function swatches(row, list, key) {
+    row.innerHTML = '';
+    list.forEach(c => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'sw'; b.style.background = hex(c);
+      b.setAttribute('aria-label', 'Màu ' + hex(c)); b.setAttribute('aria-pressed', cfg[key] === c);
+      b.onclick = () => { cfg[key] = c; swatches(row, list, key); rebuild(); };
+      row.appendChild(b);
+    });
+  }
+  let player, mode = 'intro';
+  function rebuild() {
+    const parent = player ? player.group.parent : preview;
+    const pos = player ? player.group.position.clone() : new THREE.Vector3(), rot = player ? player.group.rotation.y : 0;
+    if (player) parent.remove(player.group);
+    player = makeChibi({ shirt: cfg.shirt, pants: 0x2f4a56, hair: cfg.hair, female: cfg.female });
+    player.group.position.copy(pos); player.group.rotation.y = rot; parent.add(player.group);
+  }
+  $('nameIn').value = cfg.name;
+  $('nameIn').oninput = e => cfg.name = e.target.value;
+  $('randName').onclick = () => { cfg.name = NAMES[Math.floor(Math.random() * NAMES.length)]; $('nameIn').value = cfg.name; };
+  $('genderRow').querySelectorAll('.chip').forEach(b => {
+    b.setAttribute('aria-pressed', (b.dataset.g === 'f') === cfg.female);
+    b.onclick = () => { cfg.female = b.dataset.g === 'f'; $('genderRow').querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === b)); rebuild(); };
+  });
+  swatches($('shirtRow'), SHIRTS, 'shirt'); swatches($('hairRow'), HAIRS, 'hair');
+  rebuild();
+  let pDrag = null, previewSpin = 0;
+  canvas.addEventListener('pointerdown', e => { if (mode === 'intro') pDrag = e.clientX; });
+  addEventListener('pointermove', e => { if (mode === 'intro' && pDrag !== null) { previewSpin += (e.clientX - pDrag) * 0.012; pDrag = e.clientX; } });
+  addEventListener('pointerup', () => pDrag = null);
+
+  /* ================= Đổi tầng ================= */
+  let cur = null, obstacles = [], zones = [], grid = null, path = [], target = null, near = null, openZone = null;
+  let zoom = 1, camYaw = -Math.PI / 2, camPitch = 0.6;
+  function setFloor(n) {
+    cur = floors[n];
+    [3, 4].forEach(k => floors[k].g.visible = k === n);
+    obstacles = cur.obstacles; zones = cur.zones; grid = null; path = []; target = null; marker.visible = false; near = null;
+    player.group.position.set(-12.6, 0, 8); player.group.rotation.y = Math.PI / 2; camYaw = -Math.PI / 2;
+    camera.position.set(-15.4, 3.4, 8);
+    $('floorBtn').querySelector('b').textContent = n === 3 ? 'Lên tầng 4' : 'Xuống tầng 3';
+    $('hudZone').textContent = `Tầng ${n} · Sảnh`;
+    closePanel(); buildMenu();
+  }
+  function changeFloor(n, then) {
+    if (cur && cur.n === n) { then && then(); return; }
+    const fade = $('fade'); fade.textContent = `Tầng ${n}`; fade.classList.add('on');
+    setTimeout(() => { setFloor(n); fade.classList.remove('on'); then && then(); }, reduce ? 0 : 380);
+  }
+  $('floorBtn').onclick = () => changeFloor(cur.n === 3 ? 4 : 3);
+
+  $('enter').onclick = () => {
+    cfg.name = ($('nameIn').value.trim() || 'Khách').slice(0, 24);
+    try { localStorage.setItem('tdc-avatar', JSON.stringify(cfg)); } catch (e) {}
+    preview.remove(player.group); world.add(player.group);
+    camera.clearViewOffset();
+    mode = 'world'; setFloor(3);
+    $('intro').hidden = true; $('hud').hidden = false; $('hudName').textContent = cfg.name;
+    setTimeout(() => $('hint').style.opacity = 0, 8000);
+  };
+
+  /* ================= Điều khiển ================= */
+  const keys = {};
+  const typing = e => /INPUT|TEXTAREA|SELECT/.test(e.target.tagName);
+  addEventListener('keydown', e => {
+    if (mode !== 'world' || typing(e)) return;
+    keys[e.code] = true;
+    if (e.code === 'KeyE' || e.code === 'Enter') { if (near) openPanel(near); }
+    if (e.code === 'Escape') { closePanel(); closeGo(); }
+    if (e.code.startsWith('Arrow')) e.preventDefault();
+  });
+  addEventListener('keyup', e => keys[e.code] = false);
+  addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+  let downAt = null, lastX = 0, lastY = 0;
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; lastX = e.clientX; lastY = e.clientY; });
+  canvas.addEventListener('pointermove', e => {
+    if (mode !== 'world' || !e.buttons) return;
+    camYaw -= (e.clientX - lastX) * 0.006;
+    camPitch = Math.max(0.15, Math.min(1.3, camPitch + (e.clientY - lastY) * 0.004));
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  canvas.addEventListener('pointerup', e => {
+    if (mode !== 'world' || !downAt) return;
+    if (Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 8) return;
+    ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObject(cur.floor)[0];
+    if (hit) { goTo(hit.point.x, hit.point.z); closeGo(); }
+  });
+  const setZoom = z => zoom = Math.max(0.55, Math.min(2.2, z));
+  canvas.addEventListener('wheel', e => { if (mode === 'world') { setZoom(zoom + e.deltaY * 0.001); e.preventDefault(); } }, { passive: false });
+  $('zIn').onclick = () => setZoom(zoom - 0.2);
+  $('zOut').onclick = () => setZoom(zoom + 0.2);
+
+  const joy = { x: 0, y: 0, id: null };
+  const joyEl = $('joy'), knob = joyEl.querySelector('i');
+  function joyMove(e) {
+    const r = joyEl.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    let dx = e.clientX - cx, dy = e.clientY - cy; const m = Math.hypot(dx, dy), max = r.width / 2 - 10;
+    if (m > max) { dx *= max / m; dy *= max / m; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`; joy.x = dx / max; joy.y = dy / max;
+  }
+  joyEl.addEventListener('pointerdown', e => { joy.id = e.pointerId; joyEl.setPointerCapture(e.pointerId); joyMove(e); target = null; path = []; });
+  joyEl.addEventListener('pointermove', e => { if (e.pointerId === joy.id) joyMove(e); });
+  const joyEnd = () => { joy.id = null; joy.x = joy.y = 0; knob.style.transform = ''; };
+  joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercancel', joyEnd);
+
+  // menu "Đi tới" theo tầng; chọn khu ở tầng khác sẽ đi thang máy trước
+  const goMenu = $('goMenu'), goBtn = $('goBtn');
+  function buildMenu() {
+    goMenu.innerHTML = [3, 4].map(n => `<h4>Tầng ${n}${cur && cur.n === n ? ' · bạn đang ở đây' : ''}</h4>` +
+      floors[n].zones.map((z, i) => `<button type="button" data-f="${n}" data-i="${i}"><b>${z.name}</b><small>${z.sub}</small></button>`).join('')).join('');
+    goMenu.querySelectorAll('button').forEach(b => b.onclick = () => {
+      const n = +b.dataset.f, z = floors[n].zones[+b.dataset.i];
+      closeGo(); closePanel(); changeFloor(n, () => goTo(z.pos[0], z.pos[1]));
+    });
+  }
+  function closeGo() { goMenu.hidden = true; goBtn.setAttribute('aria-expanded', 'false'); }
+  goBtn.onclick = () => { const open = goMenu.hidden; goMenu.hidden = !open; goBtn.setAttribute('aria-expanded', open); };
+
+  /* ================= Khung thông tin ================= */
+  function openPanel(z) {
+    openZone = z;
+    $('pEyebrow').textContent = `Tầng ${z.floor} · ${z.sub}`; $('pTitle').textContent = z.name; $('pBody').innerHTML = z.body();
+    $('panel').hidden = false; $('prompt').hidden = true;
+    const f = $('bk');
+    if (f) f.addEventListener('submit', e => {
+      e.preventDefault();
+      const n = $('bk-name').value.trim(), p = $('bk-phone').value.trim(), ok = $('bk-ok');
+      ok.textContent = (!n || !/^[0-9 +.]{9,15}$/.test(p)) ? 'Vui lòng nhập họ tên và số điện thoại hợp lệ (9–15 chữ số).'
+        : `Cảm ơn ${n}. Bản 3D này chưa nối với hệ thống của phòng khám nên yêu cầu chưa được gửi; hãy gọi hotline để chốt lịch.`;
+      ok.hidden = false;
+    });
+    $('pBody').querySelectorAll('[data-floor]').forEach(b => b.onclick = () => changeFloor(+b.dataset.floor));
+  }
+  function closePanel() { $('panel').hidden = true; openZone = null; }
+  $('close').onclick = closePanel;
+  $('promptBtn').onclick = () => near && openPanel(near);
+
+  const bubbles = [3, 4].flatMap(n => floors[n].zones.filter(z => z.npc).map(z => {
+    const el = document.createElement('div'); el.className = 'bubble'; el.hidden = true;
+    el.innerHTML = `<b>${z.role}</b>${z.say}`; $('bubbles').appendChild(el);
+    return { z, el };
+  }));
+
+  /* ================= Va chạm & tìm đường ================= */
+  const R = 0.38;
+  function collide(p) {
+    for (const o of obstacles) {
+      const cx = Math.max(o.x0, Math.min(p.x, o.x1)), cz = Math.max(o.z0, Math.min(p.z, o.z1));
+      const dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
+      if (d2 >= R * R) continue;
+      if (d2 > 1e-8) { const d = Math.sqrt(d2); p.x = cx + dx / d * R; p.z = cz + dz / d * R; }
+      else {
+        const opts = [[o.x0 - R - p.x, 0], [o.x1 + R - p.x, 0], [0, o.z0 - R - p.z], [0, o.z1 + R - p.z]];
+        opts.sort((a, b) => Math.abs(a[0] + a[1]) - Math.abs(b[0] + b[1])); p.x += opts[0][0]; p.z += opts[0][1];
+      }
+    }
+    p.x = Math.max(-W + 0.15 + R, Math.min(W - 0.15 - R, p.x));
+    p.z = Math.max(-D + 0.15 + R, Math.min(D - 0.15 - R, p.z));
+  }
+  const CELL = 0.4, GX = Math.round(W * 2 / CELL), GZ = Math.round(D * 2 / CELL);
+  const cellOf = (x, z) => [Math.floor((x + W) / CELL), Math.floor((z + D) / CELL)];
+  const cellPt = k => new THREE.Vector3(-W + (k % GX + 0.5) * CELL, 0, -D + (((k / GX) | 0) + 0.5) * CELL);
+  const blockedAt = (i, j) => i < 0 || j < 0 || i >= GX || j >= GZ || grid[j * GX + i] === 1;
+  function buildGrid() {
+    grid = new Uint8Array(GX * GZ); const m = R + 0.04;
+    for (let j = 0; j < GZ; j++) for (let i = 0; i < GX; i++) {
+      const x = -W + (i + 0.5) * CELL, z = -D + (j + 0.5) * CELL;
+      if (x < -W + 0.15 + m || x > W - 0.15 - m || z < -D + 0.15 + m || z > D - 0.15 - m) { grid[j * GX + i] = 1; continue; }
+      for (const o of obstacles) if (x > o.x0 - m && x < o.x1 + m && z > o.z0 - m && z < o.z1 + m) { grid[j * GX + i] = 1; break; }
+    }
+  }
+  function lineFree(ax, az, bx, bz) {
+    const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 0.15);
+    for (let k = 1; k <= n; k++) { const [i, j] = cellOf(ax + (bx - ax) * k / n, az + (bz - az) * k / n); if (blockedAt(i, j)) return false; }
+    return true;
+  }
+  function findPath(sx, sz, tx, tz) {
+    if (!grid) buildGrid();
+    let [ti, tj] = cellOf(tx, tz);
+    if (blockedAt(ti, tj)) {
+      let best = -1, bd = Infinity;
+      for (let k = 0; k < grid.length; k++) if (!grid[k]) { const d = (k % GX - ti) ** 2 + (((k / GX) | 0) - tj) ** 2; if (d < bd) { bd = d; best = k; } }
+      if (best < 0) return [];
+      ti = best % GX; tj = (best / GX) | 0; const p = cellPt(best); tx = p.x; tz = p.z;
+    }
+    const end = new THREE.Vector3(tx, 0, tz);
+    if (lineFree(sx, sz, tx, tz)) return [end];
+    const [si0, sj0] = cellOf(sx, sz), si = Math.max(0, Math.min(GX - 1, si0)), sj = Math.max(0, Math.min(GZ - 1, sj0));
+    const N = GX * GZ, g = new Float32Array(N).fill(Infinity), f = new Float32Array(N).fill(Infinity);
+    const came = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
+    const start = sj * GX + si, goal = tj * GX + ti, h = k => Math.hypot(k % GX - ti, ((k / GX) | 0) - tj);
+    g[start] = 0; f[start] = h(start); const open = [start];
+    while (open.length) {
+      let bi = 0; for (let k = 1; k < open.length; k++) if (f[open[k]] < f[open[bi]]) bi = k;
+      const c = open.splice(bi, 1)[0];
+      if (c === goal) break;
+      if (closed[c]) continue; closed[c] = 1;
+      const ci = c % GX, cj = (c / GX) | 0;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        if (!di && !dj) continue;
+        const ni = ci + di, nj = cj + dj;
+        if (blockedAt(ni, nj) || (di && dj && (blockedAt(ci + di, cj) || blockedAt(ci, cj + dj)))) continue;
+        const nk = nj * GX + ni, ng = g[c] + (di && dj ? 1.414 : 1);
+        if (ng < g[nk]) { g[nk] = ng; f[nk] = ng + h(nk); came[nk] = c; open.push(nk); }
+      }
+    }
+    if (came[goal] === -1) return [end];
+    const pts = [];
+    for (let k = goal; k !== -1 && k !== start; k = came[k]) pts.unshift(cellPt(k));
+    pts[pts.length - 1] = end;
+    const out = []; let ax = sx, az = sz, idx = 0;
+    while (idx < pts.length) {
+      let far = idx;
+      for (let k = pts.length - 1; k > idx; k--) if (lineFree(ax, az, pts[k].x, pts[k].z)) { far = k; break; }
+      out.push(pts[far]); ax = pts[far].x; az = pts[far].z; idx = far + 1;
+    }
+    return out;
+  }
+  function goTo(x, z) {
+    const pos = player.group.position;
+    path = findPath(pos.x, pos.z, x, z); target = path.shift() || null;
+    const last = path.length ? path[path.length - 1] : target;
+    if (last) { marker.position.set(last.x, 0.02, last.z); marker.visible = true; }
+  }
+
+  /* ================= Vòng lặp ================= */
+  const SPEED = 4.6, tmp = new THREE.Vector3(), lookAt = new THREE.Vector3();
+  let phase = 0, walk = 0, last = performance.now(), stuck = 0;
+  $('loading').hidden = true; $('intro').hidden = false;
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now; const t = now / 1000;
+    if (mode === 'intro') {
+      const h = innerHeight, sheetH = document.querySelector('#intro .sheet').offsetHeight;
+      const free = Math.max(160, h - sheetH - 70), dist = Math.min(14, 2.1 * h / (0.828 * free * 0.85));
+      camera.setViewOffset(innerWidth, h, 0, (sheetH - 50) / 2, innerWidth, h);
+      camera.position.set(0, 0.85 + dist * 0.12, dist); camera.lookAt(0, 0.85, 0);
+      if (!reduce && pDrag === null) previewSpin += dt * 0.4;
+      player.group.rotation.y = previewSpin; animateChibi(player, t * 2, 0, t);
+      renderer.render(preview, camera); requestAnimationFrame(frame); return;
+    }
+    const g = player.group, pos = g.position;
+    let mx = 0, mz = 0;
+    if (!openZone || !document.activeElement || !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) {
+      mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+      mz = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0);
+    }
+    if (joy.id !== null) { mx = joy.x; mz = joy.y; }
+    if (mx || mz) {
+      const c = Math.cos(camYaw), s = Math.sin(camYaw), wx = mx * c + mz * s, wz = -mx * s + mz * c;
+      mx = wx; mz = wz; target = null; path = []; marker.visible = false;
+    } else if (target) {
+      const dx = target.x - pos.x, dz = target.z - pos.z, d = Math.hypot(dx, dz);
+      if (d < (path.length ? 0.35 : 0.15)) { target = path.shift() || null; if (!target) marker.visible = false; }
+      else { mx = dx / d; mz = dz / d; }
+    }
+    const len = Math.hypot(mx, mz);
+    let moving = false;
+    if (len > 0.08) {
+      const s = Math.min(1, len); mx /= len; mz /= len;
+      const bx = pos.x, bz = pos.z;
+      pos.x += mx * SPEED * s * dt; pos.z += mz * SPEED * s * dt; collide(pos);
+      if (target && Math.hypot(pos.x - bx, pos.z - bz) < SPEED * s * dt * 0.2) { stuck += dt; if (stuck > 0.4) { target = null; path = []; marker.visible = false; stuck = 0; } } else stuck = 0;
+      const want = Math.atan2(mx, mz), c0 = g.rotation.y;
+      g.rotation.y = c0 + Math.atan2(Math.sin(want - c0), Math.cos(want - c0)) * Math.min(1, dt * 12);
+      phase += dt * 11 * s; moving = true;
+    }
+    walk += ((moving ? 1 : 0) - walk) * Math.min(1, dt * 10);
+    animateChibi(player, phase, walk, t);
+    cur.npcs.forEach((c, i) => animateChibi(c, 0, 0, t + i));
+    zones.forEach(z => {
+      z.ring.material.opacity = 0.35 + 0.25 * Math.sin(t * 3);
+      if (!z.npc) return;
+      const c = z.npc.group, dx = pos.x - c.position.x, dz = pos.z - c.position.z;
+      const want = Math.hypot(dx, dz) < 5 ? Math.atan2(dx, dz) : z.npc.base, r0 = c.rotation.y;
+      c.rotation.y = r0 + Math.atan2(Math.sin(want - r0), Math.cos(want - r0)) * Math.min(1, dt * 4);
+    });
+    if (marker.visible) marker.scale.setScalar(1 + 0.15 * Math.sin(t * 8));
+    if (!reduce) tooth.rotation.y += dt * 0.6;
+
+    // camera ngôi thứ ba thấp sau lưng nhân vật
+    const cd = 5.4 * zoom, ch = (1.2 + 2.4 * camPitch) * zoom;
+    tmp.set(pos.x + Math.sin(camYaw) * cd, ch, pos.z + Math.cos(camYaw) * cd);
+    tmp.x = Math.max(-W + 0.4, Math.min(W - 0.4, tmp.x)); tmp.z = Math.max(-D + 0.4, Math.min(D - 0.4, tmp.z)); tmp.y = Math.min(CEIL - 0.4, tmp.y);
+    camera.position.lerp(tmp, 1 - Math.exp(-dt * 6));
+    lookAt.set(pos.x - Math.sin(camYaw) * 2.2, 1.25, pos.z - Math.cos(camYaw) * 2.2);
+    camera.lookAt(lookAt);
+    signs.forEach(s => { s.material.opacity = Math.max(0, Math.min(1, (s.position.distanceTo(camera.position) - 3.5) / 3)); });
+
+    let best = null, bd = 2.2;
+    zones.forEach(z => { const d = Math.hypot(pos.x - z.pos[0], pos.z - z.pos[1]); if (d < bd) { bd = d; best = z; } });
+    if (best !== near) { near = best; $('hudZone').textContent = `Tầng ${cur.n} · ${near ? near.name : 'Sảnh'}`; if (!near && openZone) closePanel(); }
+    $('prompt').hidden = !near || !!openZone;
+    if (near && !openZone) $('promptText').textContent = `${near.name} · ${near.sub}`;
+
+    renderer.render(world, camera);
+    bubbles.forEach(({ z, el }) => {
+      const c = z.npc.group.position, show = z.floor === cur.n && Math.hypot(pos.x - c.x, pos.z - c.z) < 4.5 && !openZone;
+      el.hidden = !show; if (!show) return;
+      tmp.set(c.x, 2.1, c.z).project(camera);
+      el.style.left = (tmp.x * 0.5 + 0.5) * innerWidth + 'px'; el.style.top = (-tmp.y * 0.5 + 0.5) * innerHeight + 'px';
+    });
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
