@@ -21,6 +21,7 @@
         "ko": { ".validate": "newData.isNumber()" },
         "kb": { ".validate": "newData.isString() && newData.val().length <= 40" },
         "w": { ".validate": "newData.isNumber()" },
+        "sn": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7" },
         "$other": { ".validate": false }
       }
     }
